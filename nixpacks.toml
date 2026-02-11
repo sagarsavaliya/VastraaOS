@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = [
+  "php",
+  "phpExtensions.zip",
+  "phpExtensions.pdo_mysql",
+  "phpExtensions.gd",
+  "phpExtensions.bcmath"
+]
+
+[phases.build]
+cmds = [
+  "cd apps/api",
+  "composer install --no-interaction --prefer-dist --optimize-autoloader",
+  "php artisan config:cache",
+  "php artisan route:cache"
+]
+
+[start]
+cmd = "cd apps/api && php artisan serve --host=0.0.0.0 --port=$PORT"
