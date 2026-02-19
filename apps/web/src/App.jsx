@@ -13,6 +13,11 @@ import Workflow from './pages/Workflow';
 import Workers from './pages/Workers';
 import ThemeBuilder from './pages/ThemeBuilder';
 import SignIn from './pages/SignIn';
+import OnboardingWizard from './pages/OnboardingWizard';
+import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
+import TenantManagement from './pages/SuperAdmin/Tenants';
+import AdminManagement from './pages/SuperAdmin/Admins';
+import Settings from './pages/Settings';
 import './App.css';
 
 function App() {
@@ -24,6 +29,16 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/signin" element={<SignIn />} />
+
+              {/* Onboarding Route */}
+              <Route
+                path="/onboarding"
+                element={
+                  <ProtectedRoute onboarding={true}>
+                    <OnboardingWizard />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected Routes */}
               <Route
@@ -43,7 +58,15 @@ function App() {
                 <Route path="billing" element={<div style={{ padding: '2rem' }}>Billing & Invoices (Coming Soon)</div>} />
                 <Route path="reports" element={<div style={{ padding: '2rem' }}>Business Reports (Coming Soon)</div>} />
                 <Route path="theme-builder" element={<ThemeBuilder />} />
-                <Route path="settings" element={<div style={{ padding: '2rem' }}>Settings (Coming Soon)</div>} />
+                <Route path="settings" element={<Settings />} />
+
+                {/* Super Admin Routes */}
+                <Route path="admin" element={<ProtectedRoute adminOnly={true}><Navigate to="/admin/dashboard" replace /></ProtectedRoute>} />
+                <Route path="admin/dashboard" element={<ProtectedRoute adminOnly={true}><SuperAdminDashboard /></ProtectedRoute>} />
+                <Route path="admin/tenants" element={<ProtectedRoute adminOnly={true}><TenantManagement /></ProtectedRoute>} />
+                <Route path="admin/admins" element={<ProtectedRoute adminOnly={true}><AdminManagement /></ProtectedRoute>} />
+                <Route path="admin/settings" element={<ProtectedRoute adminOnly={true}><div style={{ padding: '2rem' }}>System Config (Coming Soon)</div></ProtectedRoute>} />
+
                 <Route path="*" element={<div style={{ padding: '2rem' }}>Page not found</div>} />
               </Route>
             </Routes>

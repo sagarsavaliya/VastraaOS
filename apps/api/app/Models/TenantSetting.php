@@ -12,18 +12,19 @@ class TenantSetting extends Model
 
     protected $fillable = [
         'tenant_id',
-        'gst_enabled',
+        'gst_module_enabled',
         'gst_number',
+        'gst_registered_name',
         'pan_number',
-        'default_currency',
+        'hidden_gst_percentage',
+        'gst_invoice_prefix',
+        'non_gst_invoice_prefix',
+        'order_prefix',
+        'financial_year_start',
+        'currency',
         'timezone',
         'date_format',
-        'fiscal_year_start_month',
-        'invoice_prefix_gst',
-        'invoice_prefix_non_gst',
-        'order_prefix',
-        'customer_prefix',
-        'default_payment_terms',
+        'measurement_unit',
         'terms_and_conditions',
         'invoice_notes',
         'sms_enabled',
@@ -37,12 +38,12 @@ class TenantSetting extends Model
     ];
 
     protected $casts = [
-        'gst_enabled' => 'boolean',
+        'gst_module_enabled' => 'boolean',
         'sms_enabled' => 'boolean',
         'whatsapp_enabled' => 'boolean',
         'email_enabled' => 'boolean',
-        'fiscal_year_start_month' => 'integer',
-        'default_payment_terms' => 'integer',
+        'financial_year_start' => 'integer',
+        'hidden_gst_percentage' => 'decimal:2',
     ];
 
     protected $hidden = [

@@ -12,8 +12,6 @@ const ProgressRibbon = ({
     skippedStageIds = [],
     overdueStageIds = []
 }) => {
-    const [hoveredStage, setHoveredStage] = useState(null);
-
     const getStageStatus = (stageId) => {
         if (completedStageIds.includes(stageId)) return 'completed';
         if (skippedStageIds.includes(stageId)) return 'skipped';
@@ -27,7 +25,7 @@ const ProgressRibbon = ({
             case 'completed': return 'bg-success border-success';
             case 'skipped': return 'bg-text-muted opacity-30 border-text-muted';
             case 'overdue': return 'bg-error animate-pulse-fast border-error';
-            case 'current': return 'bg-primary shadow-[0_0_8px_rgba(99,102,241,0.6)] animate-pulse-fast border-primary';
+            case 'current': return 'bg-primary animate-pulse-fast border-primary';
             default: return 'bg-transparent border-border/40';
         }
     };
@@ -47,24 +45,33 @@ const ProgressRibbon = ({
     const completedCount = completedStageIds.length + skippedStageIds.length;
     const percentage = Math.round((completedCount / totalStages) * 100);
 
+    const activeStage = stages.find(s => s.id === currentStageId) ||
+        (percentage === 100 ? stages[stages.length - 1] : stages[0]);
+    const activeTask = activeStage ? tasks.find(t => t.workflow_stage_id === activeStage.id) : null;
+    const activeStatus = activeStage ? getStageStatus(activeStage.id) : 'pending';
+
     return (
         <div className="flex flex-col gap-1.5 w-full">
             <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-extrabold h-3">
                 <div className="flex items-center gap-1.5 overflow-hidden">
-                    <span className={`truncate transition-colors duration-300 ${hoveredStage ? 'text-primary' : 'text-text-muted'}`}>
-                        {hoveredStage ? hoveredStage.name : (percentage === 100 ? 'Completed' : 'Workflow Progress')}
+                    <span className="truncate text-primary">
+                        {activeStage?.name || (percentage === 100 ? 'Completed' : 'Workflow Progress')}
                     </span>
-                    {hoveredStage && (
+                    {activeStage && (
                         <>
                             <span className="text-text-muted/40">•</span>
                             <span className="text-text-muted truncate lowercase font-medium">
-                                {tasks.find(t => t.workflow_stage_id === hoveredStage.id)?.worker?.display_name || 'System'}
+                                {activeTask?.worker?.display_name ||
+                                    activeTask?.assigned_worker?.display_name ||
+                                    activeTask?.assigned_user?.name ||
+                                    activeTask?.assigned_to_user?.name ||
+                                    'System'}
                             </span>
                         </>
                     )}
                 </div>
                 <span className="text-text-main tabular-nums ml-2 shrink-0">
-                    {hoveredStage ? getStatusText(getStageStatus(hoveredStage.id)) : `${percentage}%`}
+                    {getStatusText(activeStatus)}
                 </span>
             </div>
 
@@ -73,12 +80,9 @@ const ProgressRibbon = ({
                     <div
                         key={stage.id}
                         className={`
-                            flex-1 h-full rounded-full transition-all duration-300 cursor-help border
+                            flex-1 h-full rounded-full transition-all duration-300 border
                             ${getStatusStyle(getStageStatus(stage.id))}
-                            ${hoveredStage?.id === stage.id ? 'brightness-110 z-10 shadow-lg' : ''}
                         `}
-                        onMouseEnter={() => setHoveredStage(stage)}
-                        onMouseLeave={() => setHoveredStage(null)}
                     />
                 ))}
             </div>

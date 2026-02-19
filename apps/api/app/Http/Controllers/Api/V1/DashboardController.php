@@ -18,6 +18,17 @@ class DashboardController extends Controller
      */
     public function stats(Request $request): JsonResponse
     {
+        if (!app()->bound('tenant_id')) {
+            return response()->json([
+                'orders' => ['total' => 0, 'active' => 0, 'pending_payment' => 0],
+                'revenue' => ['this_month' => 0, 'invoiced_this_month' => 0, 'avg_order_value' => 0, 'total_pending_amount' => 0],
+                'customers' => ['total' => 0, 'new_this_month' => 0],
+                'inquiries' => ['total' => 0, 'converted' => 0, 'conversion_rate' => 0],
+                'tasks' => ['pending' => 0, 'overdue' => 0],
+                'deliveries' => ['upcoming_7_days' => 0, 'overdue' => 0],
+            ]);
+        }
+
         $tenantId = app('tenant_id');
 
         // Get final status IDs
@@ -121,6 +132,18 @@ class DashboardController extends Controller
      */
     public function recentOrders(Request $request): JsonResponse
     {
+        if (!app()->bound('tenant_id')) {
+            return response()->json([
+                'data' => [],
+                'meta' => [
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'per_page' => (int) $request->get('limit', 5),
+                    'total' => 0,
+                ]
+            ]);
+        }
+
         $limit = (int) $request->get('limit', 5);
         $search = $request->get('search');
         
@@ -163,6 +186,10 @@ class DashboardController extends Controller
      */
     public function upcomingDeliveries(Request $request): JsonResponse
     {
+        if (!app()->bound('tenant_id')) {
+            return response()->json(['data' => []]);
+        }
+
         $days = (int) $request->get('days', 7);
         $limit = (int) $request->get('limit', 20);
         $tenantId = app('tenant_id');

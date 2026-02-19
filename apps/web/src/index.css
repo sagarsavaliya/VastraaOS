@@ -15,6 +15,17 @@
   --color-primary: #6366f1;
   --color-background: #ffffff;
   --color-text-main: #0f172a;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-background-glass: rgba(255, 255, 255, 0.7);
+}
+
+.dark {
+  --color-background: #0f172a;
+  --color-text-main: #f8fafc;
+  --color-surface: #1e293b;
+  --color-border: #334155;
+  --color-background-glass: rgba(15, 23, 42, 0.4);
 }
 
 html,
@@ -22,6 +33,23 @@ body {
   height: 100%;
   overflow: hidden;
   /* Prevent global scrollbar */
+}
+
+/* Glassmorphism utility */
+.glass {
+  background: var(--color-background-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+}
+
+/* Premium Shadows */
+.shadow-premium {
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .shadow-premium {
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
 }
 
 /* Global Scrollbar Styles - Auto-hide behavior */
@@ -71,15 +99,15 @@ body {
 
 @keyframes pulse {
   0% {
-    transform: scale(1);
+    opacity: 1;
   }
 
   50% {
-    transform: scale(1.05);
+    opacity: 0.7;
   }
 
   100% {
-    transform: scale(1);
+    opacity: 1;
   }
 }
 

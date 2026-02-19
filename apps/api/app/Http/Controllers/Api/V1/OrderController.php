@@ -162,10 +162,9 @@ class OrderController extends Controller
             // Create payment summary
             OrderPaymentSummary::create([
                 'order_id' => $order->id,
-                'total_amount' => $subtotal,
-                'paid_amount' => 0,
+                'total_order_amount' => $subtotal,
+                'total_paid_amount' => 0,
                 'pending_amount' => $subtotal,
-                'payment_status' => 'pending',
             ]);
 
             // Create workflow tasks for each item

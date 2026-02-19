@@ -52,10 +52,10 @@ class OrderResource extends JsonResource
             'items' => $this->whenLoaded('items', fn() => OrderItemResource::collection($this->items)),
             'workflow_tasks' => $this->whenLoaded('workflowTasks'),
             'payment_summary' => $this->whenLoaded('paymentSummary', fn() => [
-                'total_amount' => (float) $this->paymentSummary->total_amount,
-                'paid_amount' => (float) $this->paymentSummary->paid_amount,
+                'total_amount' => (float) $this->paymentSummary->total_order_amount,
+                'paid_amount' => (float) $this->paymentSummary->total_paid_amount,
                 'pending_amount' => (float) $this->paymentSummary->pending_amount,
-                'payment_status' => $this->paymentSummary->payment_status,
+                'payment_status' => $this->payment_status, // Use status from Order model
             ]),
 
             'created_by' => $this->whenLoaded('createdBy', fn() => [

@@ -12,8 +12,9 @@ import {
     BarChart3
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
-const navItems = [
+const tenantNavItems = [
     { icon: Home, label: 'Dashboard', path: '/' },
     { icon: MessageSquare, label: 'Inquiries', path: '/inquiries' },
     { icon: Users, label: 'Customers', path: '/customers' },
@@ -26,7 +27,17 @@ const navItems = [
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
+const superAdminNavItems = [
+    { icon: BarChart3, label: 'Platform Stats', path: '/admin/dashboard' },
+    { icon: Briefcase, label: 'Tenants', path: '/admin/tenants' },
+    { icon: Users, label: 'Admins', path: '/admin/admins' },
+    { icon: Settings, label: 'System Config', path: '/admin/settings' },
+];
+
 const Sidebar = ({ isOpen }) => {
+    const { user } = useAuth();
+    const navItems = user?.is_super_admin ? superAdminNavItems : tenantNavItems;
+
     return (
         <aside
             className={`

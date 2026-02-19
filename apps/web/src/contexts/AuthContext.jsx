@@ -60,13 +60,28 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const updateUser = (data) => {
+        setUser(prevUser => {
+            const updatedUser = { ...prevUser, ...data };
+
+            // Handle nested tenant merge if both exist
+            if (data.tenant && prevUser.tenant) {
+                updatedUser.tenant = { ...prevUser.tenant, ...data.tenant };
+            }
+
+            localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+            return updatedUser;
+        });
+    };
+
     const value = {
         user,
         token,
         loading,
         isAuthenticated: !!token,
         login,
-        logout
+        logout,
+        updateUser
     };
 
     return (

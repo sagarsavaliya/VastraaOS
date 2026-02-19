@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
+    baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/v1` : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'),
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -39,7 +39,10 @@ api.interceptors.response.use(
                 case 401:
                     // Unauthorized - clear token and redirect to login
                     localStorage.removeItem('auth_token');
-                    window.location.href = '/login';
+                    // Don't redirect if we're already on signin or if the request was to login
+                    if (window.location.pathname !== '/signin' && !error.config.url.includes('/auth/login')) {
+                        window.location.href = '/signin';
+                    }
                     break;
                 case 403:
                     console.error('Access forbidden:', data.message);

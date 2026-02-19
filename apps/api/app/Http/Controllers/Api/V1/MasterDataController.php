@@ -13,11 +13,19 @@ use App\Models\OrderPriority;
 use App\Models\OrderStatus;
 use App\Models\WorkflowStage;
 use App\Models\WorkType;
+use App\Services\TenantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MasterDataController extends Controller
 {
+    protected $tenantService;
+
+    public function __construct(TenantService $tenantService)
+    {
+        $this->tenantService = $tenantService;
+    }
+
     /**
      * Get item types
      */
@@ -168,6 +176,31 @@ class MasterDataController extends Controller
         return response()->json([
             'data' => $query->get(),
         ]);
+    }
+
+    /**
+     * Seed default master data for the current tenant
+     */
+    public function seedDefaults(Request $request): JsonResponse
+    {
+        $tenant = auth()->user()->tenant;
+        
+        if (!$tenant) {
+            return response()->json(['message' => 'Tenant context not found'], 404);
+        }
+
+        try {
+            $this->tenantService->seedMasterData($tenant);
+            
+            return response()->json([
+                'message' => 'Default master data seeded successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to seed defaults',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

@@ -14,16 +14,15 @@ class OrderPaymentSummary extends Model
 
     protected $fillable = [
         'order_id',
-        'total_amount',
-        'paid_amount',
+        'total_order_amount',
+        'total_paid_amount',
         'pending_amount',
         'last_payment_date',
-        'payment_status',
     ];
 
     protected $casts = [
-        'total_amount' => 'decimal:2',
-        'paid_amount' => 'decimal:2',
+        'total_order_amount' => 'decimal:2',
+        'total_paid_amount' => 'decimal:2',
         'pending_amount' => 'decimal:2',
         'last_payment_date' => 'date',
     ];

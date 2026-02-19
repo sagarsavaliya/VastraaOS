@@ -26,7 +26,9 @@ Route::prefix('v1')->group(function () {
     // =============================================
     // Public Routes (No Authentication)
     // =============================================
-    Route::post('/auth/register', [AuthController::class, 'register']);
+    Route::post('/auth/register', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'register']);
+    Route::get('/auth/check-subdomain', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'checkSubdomain']);
+    Route::post('/auth/verify-tenant', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'verify']);
     Route::post('/auth/login', [AuthController::class, 'login']);
 
     // Public inquiry submission (for website forms)
@@ -59,6 +61,7 @@ Route::prefix('v1')->group(function () {
         // Master Data (Read-only for most users)
         // -----------------------------------------
         Route::prefix('masters')->group(function () {
+            Route::post('/seed-defaults', [MasterDataController::class, 'seedDefaults']);
             Route::get('/item-types', [MasterDataController::class, 'itemTypes']);
             Route::get('/work-types', [MasterDataController::class, 'workTypes']);
             Route::get('/embellishment-zones', [MasterDataController::class, 'embellishmentZones']);
@@ -72,12 +75,20 @@ Route::prefix('v1')->group(function () {
 
             // CRUD for master data (Owner/Manager only)
             Route::middleware(['permission:settings.master_data'])->group(function () {
-                Route::apiResource('item-types', MasterDataController::class)->except(['index']);
-                Route::apiResource('work-types', MasterDataController::class)->except(['index']);
-                Route::apiResource('embellishment-zones', MasterDataController::class)->except(['index']);
-                Route::apiResource('inquiry-sources', MasterDataController::class)->except(['index']);
-                Route::apiResource('occasions', MasterDataController::class)->except(['index']);
-                Route::apiResource('budget-ranges', MasterDataController::class)->except(['index']);
+                $masterTypes = [
+                    'item-types',
+                    'work-types',
+                    'embellishment-zones',
+                    'inquiry-sources',
+                    'occasions',
+                    'budget-ranges'
+                ];
+
+                foreach ($masterTypes as $type) {
+                    Route::post($type, [MasterDataController::class, 'store'])->defaults('type', $type);
+                    Route::put($type . '/{id}', [MasterDataController::class, 'update'])->defaults('type', $type);
+                    Route::delete($type . '/{id}', [MasterDataController::class, 'destroy'])->defaults('type', $type);
+                }
             });
         });
 
@@ -193,11 +204,29 @@ Route::prefix('v1')->group(function () {
         });
 
         // -----------------------------------------
+        // Super Admin Management
+        // -----------------------------------------
+        Route::middleware(['super-admin'])->prefix('super-admin')->group(function () {
+            // Tenant Management
+            Route::get('/tenants', [App\Http\Controllers\Api\V1\SuperAdmin\TenantController::class, 'index']);
+            Route::get('/tenants/stats', [App\Http\Controllers\Api\V1\SuperAdmin\TenantController::class, 'globalStats']);
+            Route::get('/tenants/{tenant}', [App\Http\Controllers\Api\V1\SuperAdmin\TenantController::class, 'show']);
+            Route::put('/tenants/{tenant}', [App\Http\Controllers\Api\V1\SuperAdmin\TenantController::class, 'update']);
+            Route::put('/tenants/{tenant}/status', [App\Http\Controllers\Api\V1\SuperAdmin\TenantController::class, 'updateStatus']);
+
+            // Admin Management
+            Route::get('/admins', [App\Http\Controllers\Api\V1\SuperAdmin\AdminController::class, 'index']);
+            Route::post('/admins', [App\Http\Controllers\Api\V1\SuperAdmin\AdminController::class, 'store']);
+            Route::delete('/admins/{user}', [App\Http\Controllers\Api\V1\SuperAdmin\AdminController::class, 'destroy']);
+        });
+
+        // -----------------------------------------
         // Settings
         // -----------------------------------------
         Route::prefix('settings')->group(function () {
             Route::get('/tenant', [App\Http\Controllers\Api\V1\SettingsController::class, 'getTenantSettings']);
             Route::put('/tenant', [App\Http\Controllers\Api\V1\SettingsController::class, 'updateTenantSettings']);
+            Route::put('/onboarding', [App\Http\Controllers\Api\V1\SettingsController::class, 'updateOnboardingStatus']);
             Route::get('/subscription', [App\Http\Controllers\Api\V1\SettingsController::class, 'getSubscription']);
         });
     });

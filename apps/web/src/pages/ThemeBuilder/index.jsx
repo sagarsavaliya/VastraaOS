@@ -15,38 +15,34 @@ const ThemeBuilder = () => {
         updateThemeVariable(key, value);
     };
 
-    // --- UI Components ---
-
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setActiveTab(id)}
             className={`
-                relative w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] text-sm font-black transition-all duration-500 overflow-hidden group
+                relative w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group
                 ${activeTab === id
-                    ? 'bg-primary text-white shadow-[0_20px_40px_-12px_rgba(var(--color-primary-rgb),0.4)] scale-[1.02]'
-                    : 'text-text-muted hover:bg-background-content/10 hover:text-text-main'}
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
+                    : 'text-text-muted hover:bg-surface hover:text-text-main'}
             `}
         >
-            {activeTab === id && (
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 animate-in slide-in-from-left duration-500" />
-            )}
-            <Icon size={20} className={`transition-transform duration-500 ${activeTab === id ? 'rotate-12 scale-110' : 'group-hover:scale-110'}`} />
-            <span className="uppercase tracking-[0.2em] italic">{label}</span>
+            <Icon size={18} className={`transition-transform duration-300 ${activeTab === id ? 'scale-110' : 'group-hover:scale-110'}`} />
+            <span className="uppercase tracking-widest text-[11px] font-bold">{label}</span>
         </button>
     );
 
     const SectionHeader = ({ title, description }) => (
-        <div className="mb-10">
-            <h3 className="text-2xl font-black text-text-main tracking-tighter italic uppercase flex items-center gap-3">
-                <span className="w-8 h-1 bg-primary rounded-full" />
+        <div className="mb-8">
+            <h3 className="text-xl font-bold text-text-main tracking-tight uppercase flex items-center gap-3">
+                <span className="w-6 h-1 bg-primary rounded-full" />
                 {title}
             </h3>
-            {description && <p className="text-xs font-bold text-text-muted mt-2 uppercase tracking-widest">{description}</p>}
+            {description && <p className="text-[11px] font-medium text-text-muted mt-2 uppercase tracking-wider">{description}</p>}
         </div>
     );
 
+
     const ControlGroup = ({ label, children }) => (
-        <div className="bg-background-content/10 backdrop-blur-md p-8 rounded-[2rem] border border-border/50 hover:border-primary/30 transition-all duration-500 group shadow-lg">
+        <div className="bg-background-content/10 p-8 rounded-[2rem] border border-border/50 hover:border-primary/30 transition-all duration-500 group shadow-lg">
             <label className="text-[10px] font-black text-text-muted mb-6 block uppercase tracking-[0.3em] group-hover:text-primary transition-colors">{label}</label>
             <div className="space-y-4">
                 {children}
@@ -123,32 +119,28 @@ const ThemeBuilder = () => {
 
 
     return (
-        <div className="min-h-screen bg-background relative overflow-hidden transition-colors duration-1000">
-            {/* Background Atmosphere */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-primary/30 rounded-full blur-[160px] animate-pulse" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-primary/20 rounded-full blur-[160px] animate-pulse duration-[8s]" />
-            </div>
+        <div className="">
 
-            <div className="max-w-[1600px] mx-auto p-8 md:p-16 relative z-10">
+            <div className="mx-auto relative z-10">
                 {/* --- Header --- */}
-                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-20">
+                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-16">
                     <div>
                         <div className="flex items-center gap-3 mb-4">
-                            <Wand2 className="text-primary animate-bounce" size={24} />
-                            <span className="text-[10px] font-black text-primary uppercase tracking-[0.5em]">System Aesthetics Core</span>
+                            <Palette className="text-primary" size={20} />
+                            <span className="text-[11px] font-bold text-primary uppercase tracking-widest">Brand Aesthetics</span>
                         </div>
-                        <h1 className="text-7xl font-black text-text-main tracking-tighter mb-4 italic uppercase">
-                            Theme<span className="text-primary italic">Studio</span>
+                        <h1 className="text-5xl font-bold text-text-main tracking-tight mb-4 uppercase">
+                            Theme<span className="text-primary"> Studio</span>
                         </h1>
-                        <p className="text-text-muted text-lg font-bold max-w-2xl uppercase tracking-widest opacity-60">
-                            Engineering the visual architecture of your enterprise ecosystem.
+                        <p className="text-text-muted text-base font-medium max-w-2xl uppercase tracking-wider opacity-80">
+                            Customize the visual language of your workshop environment.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-6 bg-surface/30 backdrop-blur-xl p-3 rounded-[2.5rem] border border-white/10 shadow-2xl">
+
+                    <div className="flex items-center gap-6 rounded-[2.5rem] ">
                         {/* Mode Switcher */}
-                        <div className="flex bg-background/50 rounded-2xl p-1.5 border border-white/5 shadow-inner">
+                        <div className="flex bg-background/50 rounded-2xl p-1.5  shadow-inner">
                             <button
                                 onClick={() => mode === 'dark' && toggleTheme()}
                                 className={`
@@ -158,9 +150,10 @@ const ThemeBuilder = () => {
                                         : 'text-text-muted hover:text-white'}
                                 `}
                             >
-                                <Sun size={16} fill={mode === 'light' ? 'currentColor' : 'none'} />
-                                Daylight
+                                <Sun size={14} fill={mode === 'light' ? 'currentColor' : 'none'} />
+                                Light
                             </button>
+
                             <button
                                 onClick={() => mode === 'light' && toggleTheme()}
                                 className={`
@@ -170,9 +163,10 @@ const ThemeBuilder = () => {
                                         : 'text-text-muted hover:text-white'}
                                 `}
                             >
-                                <Moon size={16} fill={mode === 'dark' ? 'currentColor' : 'none'} />
-                                Midnight
+                                <Moon size={14} fill={mode === 'dark' ? 'currentColor' : 'none'} />
+                                Dark
                             </button>
+
                         </div>
 
                         <div className="w-px h-10 bg-white/10" />
@@ -193,21 +187,23 @@ const ThemeBuilder = () => {
                     <div className="col-span-12 lg:col-span-4 xl:col-span-3">
                         <div className="sticky top-12 space-y-12">
                             <nav className="space-y-4">
-                                <TabButton id="colors" label="Neural Colors" icon={Palette} />
-                                <TabButton id="typography" label="Type Matrix" icon={Type} />
-                                <TabButton id="layout" label="Spatial Flow" icon={Layout} />
-                                <TabButton id="effects" label="Visual Depth" icon={BoxSelect} />
+                                <TabButton id="colors" label="Color Palette" icon={Palette} />
+                                <TabButton id="typography" label="Typography" icon={Type} />
+                                <TabButton id="layout" label="Layout" icon={Layout} />
+                                <TabButton id="effects" label="Visual Effects" icon={BoxSelect} />
                             </nav>
 
+
                             {/* Render Engine Card */}
-                            <div className="p-10 bg-surface/20 backdrop-blur-3xl rounded-[3rem] border border-white/10 hidden lg:block shadow-2xl relative overflow-hidden group">
+                            <div className="p-10 bg-surface/20 rounded-[3rem] border border-white/10 hidden lg:block relative overflow-hidden group">
                                 <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity duration-1000">
                                     <Sparkles size={48} className="text-primary rotate-12" />
                                 </div>
-                                <h4 className="text-[10px] font-black text-text-muted mb-8 flex items-center gap-3 uppercase tracking-[0.4em]">
-                                    <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                                    Live Render Engine
+                                <h4 className="text-[11px] font-bold text-text-muted mb-8 flex items-center gap-3 uppercase tracking-wider">
+                                    <div className="w-2 h-2 rounded-full bg-primary" />
+                                    Live Preview
                                 </h4>
+
                                 <div className="space-y-6">
                                     <ModernButton
                                         variant="primary"
@@ -221,7 +217,7 @@ const ThemeBuilder = () => {
                                     >
                                         SECONDARY FLOW
                                     </ModernButton>
-                                    <div className="pt-4 p-6 bg-background/40 rounded-3xl border border-white/5">
+                                    <div className="pt-4 p-6 bg-background/40 rounded-3xl ">
                                         <p className="text-sm font-bold text-text-main leading-relaxed tracking-tight italic">
                                             "The <span className="text-primary">convergence</span> of fabric and intelligence creates the next generation of industrial design."
                                         </p>
@@ -233,13 +229,14 @@ const ThemeBuilder = () => {
 
                     {/* --- Main Configuration Area --- */}
                     <div className="col-span-12 lg:col-span-8 xl:col-span-9">
-                        <div className="bg-surface/10 backdrop-blur-3xl rounded-[4rem] border border-white/5 shadow-[0_64px_128px_-24px_rgba(0,0,0,0.4)] p-12 lg:p-20 animate-in fade-in slide-in-from-right-12 duration-1000">
+                        <div className="pl-8 animate-in fade-in slide-in-from-right-12 duration-1000">
 
                             {/* COLORS */}
                             {activeTab === 'colors' && (
                                 <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
                                     <section>
-                                        <SectionHeader title="Core Identity Matrix" description="Regulate the fundamental frequencies of your brand." />
+                                        <SectionHeader title="Brand Colors" description="Define the primary and secondary colors for your brand." />
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <ControlGroup label="Primary Spectrum">
                                                 <ColorSwatch label="Base Frequency" variable="--color-primary" />
@@ -288,18 +285,20 @@ const ThemeBuilder = () => {
                             {activeTab === 'typography' && (
                                 <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
                                     <section>
-                                        <SectionHeader title="Font Topography" description="Establish the legibility matrix for your interface." />
+                                        <SectionHeader title="Font System" description="Establish the typographic hierarchy for your interface." />
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                             <ControlGroup label="Body Logic">
                                                 <SelectControl
                                                     label="Base Typeface"
                                                     variable="--font-family-base"
                                                     options={[
-                                                        { label: 'Inter Paradigm', value: '"Inter", system-ui, sans-serif' },
-                                                        { label: 'Roboto Core', value: '"Roboto", sans-serif' },
-                                                        { label: 'Neural System', value: 'system-ui, -apple-system, sans-serif' },
-                                                        { label: 'Antique Serif', value: 'Georgia, serif' },
+                                                        { label: 'Inter (Sans-Serif)', value: '"Inter", system-ui, sans-serif' },
+                                                        { label: 'Roboto (Sans-Serif)', value: '"Roboto", sans-serif' },
+                                                        { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },
+                                                        { label: 'Georgia (Serif)', value: 'Georgia, serif' },
                                                     ]}
+
                                                 />
                                             </ControlGroup>
                                             <ControlGroup label="Identity Type">
@@ -322,7 +321,8 @@ const ThemeBuilder = () => {
                             {activeTab === 'layout' && (
                                 <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
                                     <section>
-                                        <SectionHeader title="Structural Ratios" description="Control the dimensional flow of system modules." />
+                                        <SectionHeader title="Interface Layout" description="Control the spacing and dimensions of system components." />
+
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                                             <ControlGroup label="Sidebar Extension">
                                                 <SliderControl label="Standard Span" variable="--sidebar-width" min={200} max={400} />
@@ -343,12 +343,13 @@ const ThemeBuilder = () => {
                             {activeTab === 'effects' && (
                                 <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
                                     <section>
-                                        <SectionHeader title="Quantum Shadows" description="Regulation of perceived depth and layering." />
-                                        <div className="p-20 bg-background/20 rounded-[4rem] border border-white/5 flex flex-wrap gap-20 justify-center">
-                                            <div className="w-48 h-48 bg-surface/40 backdrop-blur-md rounded-[2.5rem] shadow-sm flex items-center justify-center text-text-muted border border-white/10 font-black uppercase tracking-widest text-[10px]">
+                                        <SectionHeader title="Visual Depth" description="Configure shadows and layering for a premium feel." />
+
+                                        <div className="p-20 bg-background/20 rounded-[4rem]  flex flex-wrap gap-20 justify-center">
+                                            <div className="w-48 h-48 bg-surface/40 rounded-[2.5rem] shadow-sm flex items-center justify-center text-text-muted border border-white/10 font-black uppercase tracking-widest text-[10px]">
                                                 Surface
                                             </div>
-                                            <div className="w-48 h-48 bg-surface/60 backdrop-blur-md rounded-[2.5rem] shadow-xl shadow-black/40 flex items-center justify-center text-text-main border border-white/20 font-black uppercase tracking-widest text-[10px] scale-105">
+                                            <div className="w-48 h-48 bg-surface/60 rounded-[2.5rem] shadow-xl shadow-black/40 flex items-center justify-center text-text-main border border-white/20 font-black uppercase tracking-widest text-[10px] scale-105">
                                                 Elevated
                                             </div>
                                             <div className="w-48 h-48 bg-primary rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(var(--color-primary-rgb),0.5)] flex items-center justify-center text-white font-black uppercase tracking-widest text-[10px] scale-110">

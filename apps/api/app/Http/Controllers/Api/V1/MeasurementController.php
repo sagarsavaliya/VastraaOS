@@ -140,10 +140,15 @@ class MeasurementController extends Controller
             $record = MeasurementRecord::create([
                 'tenant_id' => app('tenant_id'),
                 'measurement_profile_id' => $validated['measurement_profile_id'],
-                'measurement_date' => $validated['measurement_date'],
-                'measured_by_user_id' => $request->user()->id,
+                'recorded_date' => $validated['measurement_date'],
+                'recorded_by_user_id' => $request->user()->id,
                 'notes' => $validated['notes'] ?? null,
+                'is_latest' => true,
             ]);
+
+            // Mark this as latest and unmark previous
+            $record->markAsLatest();
+
 
             foreach ($validated['measurements'] as $measurement) {
                 MeasurementValue::create([

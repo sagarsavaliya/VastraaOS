@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { ShoppingBag, Users, DollarSign, CheckSquare, RefreshCw, AlertCircle, TrendingUp, CreditCard, MessageSquare } from 'lucide-react';
 import StatCard from '../../components/UI/StatCard';
 import Modal from '../../components/UI/Modal';
@@ -11,6 +13,13 @@ import OrderForm from '../Orders/components/OrderForm';
 import { getDashboardStats, getRecentOrders, getUpcomingDeliveries } from './services/dashboardService';
 
 const Dashboard = () => {
+    const { user } = useAuth();
+
+    // Redirect Super Admins to their specific dashboard
+    if (user?.is_super_admin) {
+        return <Navigate to="/admin/dashboard" replace />;
+    }
+
     const [stats, setStats] = useState(null);
     const [upcomingDeliveries, setUpcomingDeliveries] = useState([]);
     const [loading, setLoading] = useState(true);

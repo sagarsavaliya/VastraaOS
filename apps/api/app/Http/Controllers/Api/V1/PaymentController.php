@@ -116,15 +116,21 @@ class PaymentController extends Controller
             ]);
 
             // Update payment summary
-            $newPaidAmount = $paymentSummary->paid_amount + $validated['amount'];
-            $newPendingAmount = $paymentSummary->total_amount - $newPaidAmount;
+            $newPaidAmount = $paymentSummary->total_paid_amount + $validated['amount'];
+            $newPendingAmount = $paymentSummary->total_order_amount - $newPaidAmount;
             $paymentStatus = $newPendingAmount <= 0 ? 'paid' : 'partial';
 
             $paymentSummary->update([
-                'paid_amount' => $newPaidAmount,
+                'total_paid_amount' => $newPaidAmount,
                 'pending_amount' => max(0, $newPendingAmount),
-                'payment_status' => $paymentStatus,
                 'last_payment_date' => $validated['payment_date'],
+            ]);
+
+            // Update order payment status and amounts (denormalized)
+            $order->update([
+                'amount_paid' => $newPaidAmount,
+                'amount_pending' => max(0, $newPendingAmount),
+                'payment_status' => $paymentStatus,
             ]);
 
             // If linked to invoice, update invoice status
@@ -173,10 +179,10 @@ class PaymentController extends Controller
 
         return response()->json([
             'summary' => [
-                'total_amount' => (float) $summary->total_amount,
-                'paid_amount' => (float) $summary->paid_amount,
+                'total_amount' => (float) $summary->total_order_amount,
+                'paid_amount' => (float) $summary->total_paid_amount,
                 'pending_amount' => (float) $summary->pending_amount,
-                'payment_status' => $summary->payment_status,
+                'payment_status' => $order->payment_status,
                 'last_payment_date' => $summary->last_payment_date?->format('Y-m-d'),
             ],
             'payments' => $payments,
