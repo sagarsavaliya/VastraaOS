@@ -95,8 +95,8 @@ class TenantRegistrationController extends Controller
                 }
 
                 // 3. Send Verification Email
-                $landingUrl = env('LANDING_SITE_URL', 'http://localhost:5173');
-                $verificationUrl = "{$landingUrl}/verify?token={$tenant->verification_token}&email=" . urlencode($tenant->email);
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+                $verificationUrl = "{$frontendUrl}/verify?token={$tenant->verification_token}&email=" . urlencode($tenant->email);
                 
                 Mail::to($user->email)->send(new VerifyTenantEmail($tenant, $user, $verificationUrl));
 

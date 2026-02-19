@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Mail, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { WEB_APP_URL } from '../services/api';
 
 const SignIn = () => {
     const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ const SignIn = () => {
         // On landing page, we just redirect them to the web app's signin
         // In a real scenario, we might pre-authenticate or check subdomain
         setTimeout(() => {
-            window.location.href = 'http://localhost:5173/signin';
+            window.location.href = `${WEB_APP_URL}/signin`;
         }, 1200);
     };
 

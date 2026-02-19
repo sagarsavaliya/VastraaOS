@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
-import axios from 'axios';
+import api, { WEB_APP_URL } from '../services/api';
 
 const VerificationPage = () => {
     const [searchParams] = useSearchParams();
@@ -22,7 +22,7 @@ const VerificationPage = () => {
             }
 
             try {
-                const response = await axios.post('http://localhost:8000/api/v1/auth/verify-tenant', {
+                const response = await api.post('/auth/verify-tenant', {
                     token,
                     email
                 });
@@ -66,7 +66,7 @@ const VerificationPage = () => {
                             Successfully verified your business account. You can now log into your workstation and complete your setup.
                         </p>
                         <a
-                            href="http://localhost:5173/signin"
+                            href={`${WEB_APP_URL}/signin`}
                             className="w-full py-5 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group"
                         >
                             Continue to Workplace <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />

@@ -13,7 +13,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 
 const SignUp = () => {
     const [step, setStep] = useState(1);
@@ -48,7 +48,7 @@ const SignUp = () => {
     const checkSubdomain = async (sub) => {
         setCheckingSubdomain(true);
         try {
-            const response = await axios.get(`http://localhost:8000/api/v1/auth/check-subdomain?subdomain=${sub}`);
+            const response = await api.get(`/auth/check-subdomain?subdomain=${sub}`);
             setSubdomainAvailable(response.data.available);
             if (!response.data.available) {
                 setErrors(prev => ({ ...prev, subdomain: 'This subdomain is already taken' }));
@@ -107,7 +107,7 @@ const SignUp = () => {
         setApiError('');
 
         try {
-            await axios.post('http://localhost:8000/api/v1/auth/register', formData);
+            await api.post('/auth/register', formData);
             setStep(3);
         } catch (error) {
             if (error.response?.data?.errors) {
