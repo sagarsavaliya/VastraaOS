@@ -72,11 +72,12 @@ class SettingsController extends Controller
             'measurement_unit' => 'nullable|string|in:inches,cm',
             'terms_and_conditions' => 'nullable|string',
             'invoice_notes' => 'nullable|string',
+            'two_factor_enabled' => 'sometimes|boolean',
         ]);
 
         // Separate validated data
         $tenantFields = ['business_name', 'display_name', 'email', 'mobile', 'address', 'city', 'state', 'state_code', 'pincode', 'logo_url'];
-        $settingsFields = ['gst_module_enabled', 'gst_number', 'gst_registered_name', 'pan_number', 'hidden_gst_percentage', 'gst_invoice_prefix', 'non_gst_invoice_prefix', 'order_prefix', 'financial_year_start', 'currency', 'timezone', 'date_format', 'measurement_unit', 'terms_and_conditions', 'invoice_notes'];
+        $settingsFields = ['gst_module_enabled', 'gst_number', 'gst_registered_name', 'pan_number', 'hidden_gst_percentage', 'gst_invoice_prefix', 'non_gst_invoice_prefix', 'order_prefix', 'financial_year_start', 'currency', 'timezone', 'date_format', 'measurement_unit', 'terms_and_conditions', 'invoice_notes', 'two_factor_enabled'];
 
         $tenantData = array_intersect_key($validated, array_flip($tenantFields));
         $settingsData = array_intersect_key($validated, array_flip($settingsFields));

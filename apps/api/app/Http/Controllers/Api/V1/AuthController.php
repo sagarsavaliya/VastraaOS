@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\TenantSetting;
 use App\Models\TenantSubscription;
 use App\Models\User;
+use App\Services\OtpService;
 use App\Services\TenantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,54 +21,59 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    protected $tenantService;
+    protected TenantService $tenantService;
+    protected OtpService $otpService;
 
-    public function __construct(TenantService $tenantService)
+    public function __construct(TenantService $tenantService, OtpService $otpService)
     {
         $this->tenantService = $tenantService;
+        $this->otpService    = $otpService;
     }
 
     /**
-     * Register a new tenant with owner
+     * Register a new tenant with owner (legacy — kept for reference)
      */
     public function register(RegisterRequest $request): JsonResponse
     {
         $validated = $request->validated();
 
         return DB::transaction(function () use ($validated) {
-            // Create tenant
             $tenant = Tenant::create([
-                'uuid' => Str::uuid(),
+                'uuid'          => Str::uuid(),
                 'business_name' => $validated['business_name'],
-                'display_name' => $validated['display_name'] ?? $validated['business_name'],
-                'subdomain' => $validated['subdomain'],
-                'email' => $validated['email'],
-                'mobile' => $validated['mobile'] ?? null,
-                'status' => 'trial',
+                'display_name'  => $validated['display_name'] ?? $validated['business_name'],
+                'subdomain'     => $validated['subdomain'],
+                'email'         => $validated['email'],
+                'mobile'        => $validated['mobile'] ?? null,
+                'status'        => 'trial',
                 'onboarding_completed' => false,
-                'onboarding_step' => 1,
+                'onboarding_step'      => 1,
             ]);
 
-            // Assign owner role
-            $user->assignRole('owner');
+            $user = User::create([
+                'tenant_id' => $tenant->id,
+                'name'      => $validated['name'],
+                'email'     => $validated['email'],
+                'password'  => Hash::make($validated['password']),
+                'is_active' => false,
+            ]);
 
-            // Initialize tenant (settings, master data, subscription)
+            $user->assignRole('owner');
             $this->tenantService->initializeNewTenant($tenant);
 
-            // Create token
             $token = $user->createToken('auth-token')->plainTextToken;
 
             return response()->json([
-                'message' => 'Registration successful',
-                'user' => new UserResource($user->load('tenant', 'roles')),
-                'token' => $token,
+                'message'    => 'Registration successful',
+                'user'       => new UserResource($user->load('tenant', 'roles')),
+                'token'      => $token,
                 'token_type' => 'Bearer',
             ], 201);
         });
     }
 
     /**
-     * Login user
+     * Login user. If tenant has 2FA enabled, returns requires_otp instead of a token.
      */
     public function login(LoginRequest $request): JsonResponse
     {
@@ -87,25 +93,119 @@ class AuthController extends Controller
             ]);
         }
 
-        // Check tenant status
         if ($user->tenant && !in_array($user->tenant->status, ['active', 'trial'])) {
             throw ValidationException::withMessages([
                 'email' => ['Your organization account is not active.'],
             ]);
         }
 
-        // Revoke existing tokens if requested
+        // 2FA check — applies to tenant users only (not super admins)
+        if (!$user->isSuperAdmin() && $user->tenant) {
+            $settings = $user->tenant->settings;
+            if ($settings && $settings->two_factor_enabled) {
+                $otpRecord = $this->otpService->generate($user->tenant->id, $user->id, 'login');
+                $this->otpService->sendEmail($otpRecord, $user, $user->tenant);
+                $this->otpService->sendSms($otpRecord, $user->mobile ?? $user->tenant->mobile);
+
+                return response()->json([
+                    'requires_otp' => true,
+                    'message'      => 'A verification code has been sent to your registered email and mobile.',
+                ]);
+            }
+        }
+
         if ($request->boolean('revoke_existing')) {
             $user->tokens()->delete();
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
 
+        $user->update(['last_login_at' => now(), 'last_login_ip' => $request->ip()]);
+
         return response()->json([
-            'message' => 'Login successful',
-            'user' => new UserResource($user->load('tenant', 'roles')),
-            'token' => $token,
+            'message'    => 'Login successful',
+            'user'       => new UserResource($user->load('tenant', 'roles')),
+            'token'      => $token,
             'token_type' => 'Bearer',
+        ]);
+    }
+
+    /**
+     * Verify login OTP and issue auth token.
+     */
+    public function verifyLoginOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'otp'   => 'required|string|size:6',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user || !$user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Account not found or inactive.'],
+            ]);
+        }
+
+        if ($user->tenant && !in_array($user->tenant->status, ['active', 'trial'])) {
+            throw ValidationException::withMessages([
+                'email' => ['Your organization account is not active.'],
+            ]);
+        }
+
+        $result = $this->otpService->verify($user->tenant->id, 'login', $validated['otp']);
+
+        if ($result === 'not_found') {
+            return response()->json(['message' => 'No active OTP found. Please log in again to request a new code.'], 422);
+        }
+        if ($result === 'expired') {
+            return response()->json(['message' => 'Your OTP has expired. Please log in again to request a new code.'], 422);
+        }
+        if ($result === 'invalid') {
+            return response()->json(['message' => 'Invalid verification code. Please check and try again.'], 422);
+        }
+
+        $token = $user->createToken('auth-token')->plainTextToken;
+
+        $user->update(['last_login_at' => now(), 'last_login_ip' => $request->ip()]);
+
+        return response()->json([
+            'message'    => 'Login successful',
+            'user'       => new UserResource($user->load('tenant', 'roles')),
+            'token'      => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
+    /**
+     * Resend login OTP (max 3 times).
+     */
+    public function resendLoginOtp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (!$user || !$user->is_active || !$user->tenant) {
+            return response()->json(['message' => 'Account not found.'], 404);
+        }
+
+        $otpRecord = $this->otpService->resend($user->tenant->id, $user->id, 'login');
+
+        if ($otpRecord === false) {
+            return response()->json([
+                'message' => 'Maximum resend limit reached. Please log in again to start a new session.',
+            ], 429);
+        }
+
+        $this->otpService->sendEmail($otpRecord, $user, $user->tenant);
+        $this->otpService->sendSms($otpRecord, $user->mobile ?? $user->tenant->mobile);
+
+        return response()->json([
+            'message' => 'A new verification code has been sent to your email and mobile.',
         ]);
     }
 
@@ -114,12 +214,8 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        // Revoke current token
         $request->user()->currentAccessToken()->delete();
-
-        return response()->json([
-            'message' => 'Logged out successfully',
-        ]);
+        return response()->json(['message' => 'Logged out successfully']);
     }
 
     /**
@@ -127,12 +223,8 @@ class AuthController extends Controller
      */
     public function logoutAll(Request $request): JsonResponse
     {
-        // Revoke all tokens
         $request->user()->tokens()->delete();
-
-        return response()->json([
-            'message' => 'Logged out from all devices successfully',
-        ]);
+        return response()->json(['message' => 'Logged out from all devices successfully']);
     }
 
     /**
@@ -141,10 +233,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load('tenant', 'tenant.settings', 'tenant.subscription.plan', 'roles', 'permissions');
-
-        return response()->json([
-            'user' => new UserResource($user),
-        ]);
+        return response()->json(['user' => new UserResource($user)]);
     }
 
     /**
@@ -155,7 +244,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
+            'name'   => 'sometimes|string|max:255',
             'mobile' => 'nullable|string|max:15',
             'avatar' => 'nullable|string|max:255',
         ]);
@@ -164,7 +253,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => new UserResource($user->fresh()->load('tenant', 'roles')),
+            'user'    => new UserResource($user->fresh()->load('tenant', 'roles')),
         ]);
     }
 
@@ -175,7 +264,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'current_password' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
+            'password'         => 'required|string|min:8|confirmed',
         ]);
 
         $user = $request->user();
@@ -186,15 +275,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $user->update([
-            'password' => Hash::make($validated['password']),
-        ]);
+        $user->update(['password' => Hash::make($validated['password'])]);
 
-        // Revoke all other tokens
         $user->tokens()->where('id', '!=', $request->user()->currentAccessToken()->id)->delete();
 
-        return response()->json([
-            'message' => 'Password changed successfully',
-        ]);
+        return response()->json(['message' => 'Password changed successfully']);
     }
 }

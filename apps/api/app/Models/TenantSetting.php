@@ -35,14 +35,16 @@ class TenantSetting extends Model
         'email_enabled',
         'email_from_name',
         'email_from_address',
+        'two_factor_enabled',
     ];
 
     protected $casts = [
-        'gst_module_enabled' => 'boolean',
-        'sms_enabled' => 'boolean',
-        'whatsapp_enabled' => 'boolean',
-        'email_enabled' => 'boolean',
-        'financial_year_start' => 'integer',
+        'gst_module_enabled'    => 'boolean',
+        'sms_enabled'           => 'boolean',
+        'whatsapp_enabled'      => 'boolean',
+        'email_enabled'         => 'boolean',
+        'two_factor_enabled'    => 'boolean',
+        'financial_year_start'  => 'integer',
         'hidden_gst_percentage' => 'decimal:2',
     ];
 

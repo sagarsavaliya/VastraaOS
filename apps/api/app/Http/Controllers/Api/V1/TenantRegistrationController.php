@@ -5,25 +5,24 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Models\SubscriptionPlan;
-use App\Models\TenantSubscription;
-use App\Mail\VerifyTenantEmail;
+use App\Services\OtpService;
+use App\Services\TenantService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use App\Services\TenantService;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class TenantRegistrationController extends Controller
 {
-    protected $tenantService;
+    protected TenantService $tenantService;
+    protected OtpService $otpService;
 
-    public function __construct(TenantService $tenantService)
+    public function __construct(TenantService $tenantService, OtpService $otpService)
     {
         $this->tenantService = $tenantService;
+        $this->otpService    = $otpService;
     }
 
     /**
@@ -43,21 +42,22 @@ class TenantRegistrationController extends Controller
 
         return response()->json([
             'available' => !$exists,
-            'message' => $exists ? 'Subdomain is already taken.' : 'Subdomain is available.'
+            'message'   => $exists ? 'Subdomain is already taken.' : 'Subdomain is available.',
         ]);
     }
 
     /**
-     * Register a new tenant.
+     * Register a new tenant. Sends OTP to email + SMS instead of a token link.
      */
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'business_name' => 'required|string|max:255',
-            'subdomain' => 'required|string|alpha_dash|unique:tenants,subdomain|max:50',
-            'owner_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email|unique:tenants,email',
-            'password' => 'required|string|min:8|confirmed',
+            'subdomain'     => 'required|string|alpha_dash|unique:tenants,subdomain|max:50',
+            'owner_name'    => 'required|string|max:255',
+            'email'         => 'required|email|unique:users,email|unique:tenants,email',
+            'mobile'        => 'nullable|string|max:15',
+            'password'      => 'required|string|min:8|confirmed',
         ]);
 
         if ($validator->fails()) {
@@ -68,25 +68,25 @@ class TenantRegistrationController extends Controller
             return DB::transaction(function () use ($request) {
                 // 1. Create Tenant
                 $tenant = Tenant::create([
-                    'uuid' => (string) Str::uuid(),
-                    'business_name' => $request->business_name,
-                    'display_name' => $request->business_name,
-                    'subdomain' => $request->subdomain,
-                    'email' => $request->email,
-                    'mobile' => $request->mobile ?? '0000000000',
-                    'status' => 'trial',
+                    'uuid'                => (string) Str::uuid(),
+                    'business_name'       => $request->business_name,
+                    'display_name'        => $request->business_name,
+                    'subdomain'           => $request->subdomain,
+                    'email'               => $request->email,
+                    'mobile'              => $request->mobile ?? '0000000000',
+                    'status'              => 'trial',
                     'onboarding_completed' => false,
-                    'onboarding_step' => 1,
-                    'verification_token' => Str::random(60),
+                    'onboarding_step'     => 1,
                 ]);
 
-                // 2. Create Owner User
+                // 2. Create Owner User (inactive until OTP verified)
                 $user = User::create([
-                    'tenant_id' => $tenant->id,
-                    'name' => $request->owner_name,
-                    'email' => $request->email,
-                    'password' => Hash::make($request->password),
-                    'is_active' => false,
+                    'tenant_id'      => $tenant->id,
+                    'name'           => $request->owner_name,
+                    'email'          => $request->email,
+                    'mobile'         => $request->mobile,
+                    'password'       => Hash::make($request->password),
+                    'is_active'      => false,
                     'is_super_admin' => false,
                 ]);
 
@@ -94,19 +94,18 @@ class TenantRegistrationController extends Controller
                     $user->assignRole('owner');
                 }
 
-                // 3. Send Verification Email
-                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
-                $verificationUrl = "{$frontendUrl}/verify?token={$tenant->verification_token}&email=" . urlencode($tenant->email);
-                
-                Mail::to($user->email)->send(new VerifyTenantEmail($tenant, $user, $verificationUrl));
+                // 3. Generate OTP and dispatch to email + SMS
+                $otpRecord = $this->otpService->generate($tenant->id, $user->id, 'registration');
+                $this->otpService->sendEmail($otpRecord, $user, $tenant);
+                $this->otpService->sendSms($otpRecord, $user->mobile ?? $tenant->mobile);
 
                 return response()->json([
-                    'message' => 'Tenant registered successfully. Please check your email for verification.',
-                    'tenant' => [
-                        'id' => $tenant->id,
+                    'message' => 'Registration successful. A 6-digit verification code has been sent to your email and mobile.',
+                    'tenant'  => [
+                        'id'            => $tenant->id,
                         'business_name' => $tenant->business_name,
-                        'subdomain' => $tenant->subdomain,
-                    ]
+                        'subdomain'     => $tenant->subdomain,
+                    ],
                 ], 201);
             });
         } catch (\Exception $e) {
@@ -115,12 +114,84 @@ class TenantRegistrationController extends Controller
     }
 
     /**
-     * Verify tenant email.
+     * Verify the registration OTP and activate the tenant.
      */
-    public function verify(Request $request)
+    public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'token' => 'required|string',
+            'email' => 'required|email',
+            'otp'   => 'required|string|size:6',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $tenant = Tenant::where('email', $request->email)->first();
+
+        if (!$tenant) {
+            return response()->json(['message' => 'No account found with this email address.'], 404);
+        }
+
+        // Idempotent — already verified (handles React Strict Mode double-calls)
+        if ($tenant->email_verified_at) {
+            return response()->json([
+                'message'   => 'Account already verified. You can now log in.',
+                'subdomain' => $tenant->subdomain,
+            ]);
+        }
+
+        $result = $this->otpService->verify($tenant->id, 'registration', $request->otp);
+
+        if ($result === 'not_found') {
+            return response()->json([
+                'message'    => 'No active verification code found. Please request a new one.',
+                'can_resend' => true,
+            ], 422);
+        }
+
+        if ($result === 'expired') {
+            return response()->json([
+                'message'    => 'Your verification code has expired. Please request a new one.',
+                'can_resend' => true,
+            ], 422);
+        }
+
+        if ($result === 'invalid') {
+            return response()->json([
+                'message' => 'Invalid verification code. Please check and try again.',
+            ], 422);
+        }
+
+        try {
+            DB::transaction(function () use ($tenant) {
+                $tenant->update([
+                    'email_verified_at' => Carbon::now(),
+                    'status'            => 'active',
+                ]);
+
+                User::where('tenant_id', $tenant->id)
+                    ->where('email', $tenant->email)
+                    ->update(['is_active' => true, 'email_verified_at' => Carbon::now()]);
+
+                $this->tenantService->initializeNewTenant($tenant);
+            });
+
+            return response()->json([
+                'message'   => 'Account verified successfully! You can now log in and set up your workspace.',
+                'subdomain' => $tenant->subdomain,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Verification failed.', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Resend the registration OTP (max 3 times).
+     */
+    public function resendOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
             'email' => 'required|email',
         ]);
 
@@ -131,45 +202,40 @@ class TenantRegistrationController extends Controller
         $tenant = Tenant::where('email', $request->email)->first();
 
         if (!$tenant) {
-            return response()->json(['message' => 'Invalid verification link.'], 404);
+            return response()->json(['message' => 'No account found with this email address.'], 404);
         }
 
-        // Handle React Strict Mode double-calls in development
         if ($tenant->email_verified_at) {
+            return response()->json(['message' => 'Account is already verified.'], 422);
+        }
+
+        $user = User::where('tenant_id', $tenant->id)->where('email', $tenant->email)->first();
+
+        $otpRecord = $this->otpService->resend($tenant->id, $user?->id, 'registration');
+
+        if ($otpRecord === false) {
             return response()->json([
-                'message' => 'Email verified successfully!',
-                'subdomain' => $tenant->subdomain,
-            ], 200);
+                'message' => 'Maximum resend limit reached. Please contact support.',
+            ], 429);
         }
 
-        if ($tenant->verification_token !== $request->token) {
-            return response()->json(['message' => 'Verification link is invalid or has expired.'], 404);
+        if ($user) {
+            $this->otpService->sendEmail($otpRecord, $user, $tenant);
+            $this->otpService->sendSms($otpRecord, $user->mobile ?? $tenant->mobile);
         }
 
-        try {
-            DB::transaction(function () use ($tenant) {
-                // Activate Tenant
-                $tenant->update([
-                    'email_verified_at' => Carbon::now(),
-                    'verification_token' => null,
-                    'status' => 'active',
-                ]);
+        return response()->json([
+            'message' => 'A new verification code has been sent to your email and mobile.',
+        ]);
+    }
 
-                // Activate Owner User
-                User::where('tenant_id', $tenant->id)
-                    ->where('email', $tenant->email)
-                    ->update(['is_active' => true, 'email_verified_at' => Carbon::now()]);
-
-                // Create Trial Subscription (Starter Plan)
-                $this->tenantService->initializeNewTenant($tenant);
-            });
-
-            return response()->json([
-                'message' => 'Email verified successfully! You can now log in and set up your workspace.',
-                'subdomain' => $tenant->subdomain,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Verification failed.', 'error' => $e->getMessage()], 500);
-        }
+    /**
+     * Legacy token-link verify endpoint — no longer supported.
+     */
+    public function verify(Request $request)
+    {
+        return response()->json([
+            'message' => 'This verification method is no longer supported. Please use the OTP verification flow.',
+        ], 410);
     }
 }

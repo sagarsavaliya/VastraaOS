@@ -28,8 +28,12 @@ Route::prefix('v1')->group(function () {
     // =============================================
     Route::post('/auth/register', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'register']);
     Route::get('/auth/check-subdomain', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'checkSubdomain']);
-    Route::post('/auth/verify-tenant', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'verify']);
+    Route::post('/auth/verify-otp', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'verifyOtp']);
+    Route::post('/auth/resend-otp', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'resendOtp']);
+    Route::post('/auth/verify-tenant', [App\Http\Controllers\Api\V1\TenantRegistrationController::class, 'verify']); // legacy — returns 410
     Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post('/auth/verify-login-otp', [AuthController::class, 'verifyLoginOtp']);
+    Route::post('/auth/resend-login-otp', [AuthController::class, 'resendLoginOtp']);
 
     // Public inquiry submission (for website forms)
     // Route::post('/inquiries/public', [CustomerInquiryController::class, 'publicSubmit']);

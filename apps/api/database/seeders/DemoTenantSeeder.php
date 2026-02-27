@@ -61,6 +61,7 @@ class DemoTenantSeeder extends Seeder
             'currency' => 'INR',
             'timezone' => 'Asia/Kolkata',
             'measurement_unit' => 'inches',
+            'two_factor_enabled' => false,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

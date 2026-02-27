@@ -73,6 +73,36 @@ export const login = async (email, password) => {
 };
 
 /**
+ * Verify login OTP and receive auth token.
+ * @param {string} email
+ * @param {string} otp - 6-digit code
+ */
+export const verifyLoginOtp = async (email, otp) => {
+    try {
+        const response = await api.post('/auth/verify-login-otp', { email, otp });
+        if (response.data.token) {
+            localStorage.setItem('auth_token', response.data.token);
+        }
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
+ * Resend login OTP.
+ * @param {string} email
+ */
+export const resendLoginOtp = async (email) => {
+    try {
+        const response = await api.post('/auth/resend-login-otp', { email });
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+/**
  * Logout user
  */
 export const logout = async () => {
