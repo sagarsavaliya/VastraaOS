@@ -38,6 +38,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('profile_photo_url', 255)->nullable();
             $table->enum('status', ['active', 'inactive', 'blocked'])->default('active');
+            $table->boolean('is_active')->default(true);
             $table->date('joined_date')->nullable();
             $table->foreignId('created_by_user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();

@@ -45,19 +45,41 @@ class OtpService
     }
 
     /**
-     * Send OTP via SMS. Logs OTP when no SMS provider is configured.
+     * Send OTP via SMS using Brevo transactional SMS API.
+     * Falls back to logging when BREVO_API_KEY is not set.
      */
     public function sendSms(TenantOtp $otpRecord, string $mobile): void
     {
-        $provider = env('SMS_PROVIDER');
+        $apiKey = config('services.brevo.api_key');
 
-        if (!$provider) {
-            Log::info("[OtpService] SMS not configured. OTP for {$mobile}: {$otpRecord->otp}");
+        if (!$apiKey) {
+            Log::info("[OtpService] SMS not configured (BREVO_API_KEY missing). OTP for {$mobile}: {$otpRecord->otp}");
             return;
         }
 
-        // Future: route to MSG91, Twilio, Fast2SMS drivers based on $provider
-        Log::warning("[OtpService] SMS provider '{$provider}' is configured but driver is not yet implemented.");
+        // Normalise to E.164 — prepend +91 for 10-digit Indian numbers
+        $to = $mobile;
+        if (strlen($mobile) === 10 && ctype_digit($mobile)) {
+            $to = '+91' . $mobile;
+        } elseif (!str_starts_with($mobile, '+')) {
+            $to = '+' . $mobile;
+        }
+
+        $response = Http::withHeaders([
+            'api-key'      => $apiKey,
+            'Content-Type' => 'application/json',
+        ])->post('https://api.brevo.com/v3/transactionalSMS/send', [
+            'sender'    => config('services.brevo.sms_sender', 'VastraaOS'),
+            'recipient' => $to,
+            'content'   => "Your VastraaOS verification code is: {$otpRecord->otp}. Valid for 10 minutes. Do not share it with anyone.",
+            'type'      => 'transactional',
+        ]);
+
+        if ($response->failed()) {
+            Log::error("[OtpService] Brevo SMS failed for {$to}: " . $response->body());
+        } else {
+            Log::info("[OtpService] SMS sent to {$to} via Brevo.");
+        }
     }
 
     /**

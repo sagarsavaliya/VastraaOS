@@ -12,6 +12,15 @@ return new class extends Migration
             $table->id();
             $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->string('order_number', 30);
+
+            // Delivery address
+            $table->string('delivery_address_line1', 255)->nullable();
+            $table->string('delivery_address_line2', 255)->nullable();
+            $table->string('delivery_city', 100)->nullable();
+            $table->string('delivery_state', 100)->nullable();
+            $table->string('delivery_pincode', 10)->nullable();
+            $table->boolean('use_customer_address')->default(true);
+
             $table->foreignId('customer_id')->constrained()->onDelete('restrict');
             $table->foreignId('measurement_profile_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('inquiry_id')->nullable()->constrained('customer_inquiries')->onDelete('set null');

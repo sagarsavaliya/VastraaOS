@@ -15,9 +15,9 @@ class SuperAdminSeeder extends Seeder
         DB::table('users')->insert([
             'tenant_id' => null,
             'name' => 'Super Admin',
-            'email' => 'admin@naariarts.com',
-            'password' => Hash::make('admin@123'),
-            'mobile' => '9999999999',
+            'email' => 'superuser@vastraaos.com',
+            'password' => Hash::make('super@128'),
+            'mobile' => '8141302341',
             'is_super_admin' => true,
             'is_active' => true,
             'email_verified_at' => now(),

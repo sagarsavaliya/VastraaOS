@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('item_additional_works', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_item_id')->constrained()->onDelete('cascade');
             $table->string('work_name', 100);
             $table->text('description')->nullable();

@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('item_embellishments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_item_id')->constrained()->onDelete('cascade');
             $table->foreignId('work_type_id')->constrained()->onDelete('restrict');
             $table->text('description')->nullable();

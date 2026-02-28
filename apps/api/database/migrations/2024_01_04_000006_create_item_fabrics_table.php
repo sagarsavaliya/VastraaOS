@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('item_fabrics', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_item_id')->constrained()->onDelete('cascade');
             $table->string('fabric_name', 100);
             $table->string('fabric_type', 50)->nullable(); // Silk, Cotton, Chiffon, etc.

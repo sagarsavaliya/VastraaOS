@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('item_embellishment_zones', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('item_embellishment_id')->constrained()->onDelete('cascade');
             $table->foreignId('embellishment_zone_id')->constrained()->onDelete('cascade');
             $table->text('description')->nullable();

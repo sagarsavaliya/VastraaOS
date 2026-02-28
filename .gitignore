@@ -1,0 +1,46 @@
+# Environment - never commit
+.env
+.env.local
+.env.*.local
+
+# Laravel
+Apps/api/vendor/
+Apps/api/.env
+Apps/api/storage/logs/*
+Apps/api/storage/framework/cache/*
+Apps/api/storage/framework/sessions/*
+Apps/api/storage/framework/views/*
+Apps/api/bootstrap/cache/*
+
+# React Web
+Apps/web/node_modules/
+Apps/web/dist/
+Apps/web/.env
+Apps/web/.env.local
+
+# React Landing
+Apps/landing/node_modules/
+Apps/landing/dist/
+Apps/landing/.env
+Apps/landing/.env.local
+
+# Flutter
+Apps/mobile/build/
+Apps/mobile/.dart_tool/
+Apps/mobile/.flutter-plugins
+Apps/mobile/.flutter-plugins-dependencies
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*

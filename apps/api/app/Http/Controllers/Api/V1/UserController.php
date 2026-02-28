@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -58,7 +59,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'mobile' => 'nullable|string|max:15',
-            'password' => 'required|string|min:8',
+            'password' => 'nullable|string|min:8',
             'role' => 'required|in:manager,staff',
         ]);
 
@@ -82,7 +83,7 @@ class UserController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'mobile' => $validated['mobile'] ?? null,
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($validated['password'] ?? Str::random(16)),
             'is_active' => true,
         ]);
 

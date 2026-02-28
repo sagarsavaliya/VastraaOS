@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose -f \"d:/Products/VastraaOS/docker-compose.yml\" exec api php artisan tinker --execute=\"echo env\\(''CORS_ALLOWED_ORIGINS''\\);\")",
+      "Bash(docker compose -f \"d:/Products/VastraaOS/docker-compose.yml\" exec api grep CORS_ALLOWED_ORIGINS /var/www/api/.env)",
+      "Bash(docker compose exec api grep CORS_ALLOWED_ORIGINS /var/www/api/.env)",
+      "Bash(docker compose exec api sh -c \"grep CORS /var/www/api/.env\")",
+      "Bash(docker compose exec api sh -c \"ls /var/www/api/bootstrap/cache/\")",
+      "Bash(docker compose exec api sh -c \"php artisan config:clear && php artisan config:cache && php artisan tinker --execute=\"\"echo config\\(''cors.allowed_origins''\\)[0];\"\"\")",
+      "Bash(docker compose exec api sh -c \"php -r \"\"echo getenv\\(''CORS_ALLOWED_ORIGINS''\\);\"\"\")",
+      "Bash(docker compose exec api sh -c \"php artisan optimize:clear && php artisan tinker --execute=\"\"echo env\\(''CORS_ALLOWED_ORIGINS''\\);\"\"\")",
+      "Bash(docker compose exec api sh -c \"cat /var/www/api/.env | grep CORS\")",
+      "Bash(docker compose exec api sh -c \"ls /var/www/api/.env* 2>/dev/null\")",
+      "Bash(docker compose exec api sh -c \"cat /var/www/api/.env.local\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan queue:size)",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan queue:failed)",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan config:show mail)",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan optimize:clear)",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan tinker --execute=\"echo config\\(''services.brevo.api_key''\\) ? ''Brevo API key: SET'' : ''Brevo API key: MISSING''; echo PHP_EOL; echo ''Mail host: '' . config\\(''mail.mailers.smtp.host''\\); echo PHP_EOL; echo ''Mail user: '' . config\\(''mail.mailers.smtp.username''\\);\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan tinker --execute=\":*)",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan tinker --execute=\"echo config\\(''mail.mailers.smtp.password''\\);\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan tinker --execute=\"echo ''From: '' . config\\(''mail.from.address''\\) . '' | Encryption: '' . config\\(''mail.mailers.smtp.encryption''\\) . '' | Port: '' . config\\(''mail.mailers.smtp.port''\\);\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api sh -c \"grep MAIL_ENCRYPTION /var/www/api/.env /var/www/api/.env.local 2>/dev/null\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api sh -c \"echo $MAIL_ENCRYPTION\")",
+      "Bash(docker compose -f d:/Products/VastraaOS/docker-compose.yml exec api php artisan tinker --execute=\"echo env\\(''MAIL_ENCRYPTION''\\) ?? ''NULL'';\")"
+    ]
+  }
+}

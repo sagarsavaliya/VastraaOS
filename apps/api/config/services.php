@@ -14,6 +14,11 @@ return [
     |
     */
 
+    'brevo' => [
+        'api_key'    => env('BREVO_API_KEY'),
+        'sms_sender' => env('BREVO_SMS_SENDER', 'VastraaOS'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

@@ -6,6 +6,7 @@ import {
     User,
     Mail,
     Lock,
+    Phone,
     ArrowRight,
     Loader2,
     ChevronLeft,
@@ -29,6 +30,7 @@ const SignUp = () => {
         subdomain: '',
         owner_name: '',
         email: '',
+        mobile: '',
         password: '',
         password_confirmation: '',
     });
@@ -101,6 +103,11 @@ const SignUp = () => {
         const newErrors = {};
         if (!formData.owner_name) newErrors.owner_name = 'Your name is required';
         if (!formData.email) newErrors.email = 'Valid email is required';
+        if (!formData.mobile) {
+            newErrors.mobile = 'Mobile number is required';
+        } else if (!/^[6-9]\d{9}$/.test(formData.mobile)) {
+            newErrors.mobile = 'Enter a valid 10-digit Indian mobile number';
+        }
         if (!formData.password) newErrors.password = 'Password is required';
         if (formData.password !== formData.password_confirmation) {
             newErrors.password_confirmation = 'Passwords do not match';
@@ -224,7 +231,7 @@ const SignUp = () => {
                     <p className="text-text-muted font-medium mt-2">
                         {step === 1 && "Let's start with the basics of your production house."}
                         {step === 2 && 'This account will be the primary owner of your tenant.'}
-                        {step === 3 && `We sent a 6-digit code to ${formData.email} and your mobile.`}
+                        {step === 3 && `We sent a 6-digit code to ${formData.email}${formData.mobile ? ` and +91 ${formData.mobile}` : ''}.`}
                         {step === 4 && 'Your workspace is ready. Sign in to get started.'}
                     </p>
                 </div>
@@ -281,6 +288,14 @@ const SignUp = () => {
                                         </div>
                                         {errors.email && <p className="text-xs text-secondary-light font-bold">{errors.email}</p>}
                                     </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-widest text-text-muted">Mobile Number</label>
+                                    <div className="relative group">
+                                        <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
+                                        <input name="mobile" value={formData.mobile} onChange={handleInputChange} type="tel" inputMode="numeric" maxLength={10} placeholder="9876543210" className="w-full pl-14 pr-6 py-4 bg-white/5 rounded-2xl border border-white/5 focus:border-primary outline-none text-sm" />
+                                    </div>
+                                    {errors.mobile && <p className="text-xs text-secondary-light font-bold">{errors.mobile}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-black uppercase tracking-widest text-text-muted">Password</label>

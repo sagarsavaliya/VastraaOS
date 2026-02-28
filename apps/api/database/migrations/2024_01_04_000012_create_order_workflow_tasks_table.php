@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('order_workflow_tasks', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_item_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('workflow_stage_id')->constrained()->onDelete('restrict');
@@ -49,7 +50,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['order_id', 'order_item_id', 'workflow_stage_id'], 'workflow_task_unique');
-            $table->index(['order_id', 'status']);
+            $table->index(['tenant_id', 'order_id', 'status']);
             $table->index(['assigned_to_user_id', 'status']);
             $table->index(['assigned_to_worker_id', 'status']);
             $table->index(['due_date']);

@@ -30,6 +30,12 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->string('profile_photo_url', 255)->nullable();
             $table->enum('customer_type', ['individual', 'business'])->default('individual');
+            $table->string('company_name', 100)->nullable();
+            $table->string('designation', 100)->nullable();
+            $table->text('company_address')->nullable();
+            $table->string('company_city', 100)->nullable();
+            $table->string('company_state', 100)->nullable();
+            $table->string('company_pincode', 10)->nullable();
             $table->enum('status', ['active', 'inactive', 'blocked'])->default('active');
             $table->json('preferences')->nullable(); // Communication preferences, etc.
             $table->json('tags')->nullable(); // For categorization

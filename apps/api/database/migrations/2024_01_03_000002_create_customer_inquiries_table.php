@@ -18,6 +18,22 @@ return new class extends Migration
             $table->string('customer_name', 100)->nullable();
             $table->string('customer_mobile', 15)->nullable();
             $table->string('customer_email', 100)->nullable();
+            $table->string('customer_type', 20)->default('individual');
+
+            // Company info
+            $table->string('company_name', 100)->nullable();
+            $table->string('designation', 100)->nullable();
+            $table->text('company_address')->nullable();
+            $table->string('company_city', 100)->nullable();
+            $table->string('company_state', 100)->nullable();
+            $table->string('company_pincode', 10)->nullable();
+            $table->string('company_gst', 15)->nullable();
+
+            // Personal address
+            $table->string('address', 255)->nullable();
+            $table->string('city', 100)->nullable();
+            $table->string('state', 100)->nullable();
+            $table->string('pincode', 10)->nullable();
 
             // Inquiry details
             $table->foreignId('source_id')->nullable()->constrained('inquiry_sources')->onDelete('set null');
@@ -38,7 +54,11 @@ return new class extends Migration
                 'quote_sent',
                 'converted',
                 'lost',
-                'cancelled'
+                'cancelled',
+                'follow_up',
+                'interested',
+                'not_interested',
+                'closed',
             ])->default('new');
 
             $table->text('notes')->nullable();

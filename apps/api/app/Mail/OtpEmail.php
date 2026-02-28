@@ -5,17 +5,12 @@ namespace App\Mail;
 use App\Models\Tenant;
 use App\Models\TenantOtp;
 use App\Models\User;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
-use Illuminate\Queue\SerializesModels;
 
-class OtpEmail extends Mailable implements ShouldQueue
+class OtpEmail extends Mailable
 {
-    use Queueable, SerializesModels;
-
     public TenantOtp $otpRecord;
     public User $user;
     public Tenant $tenant;

@@ -25,6 +25,8 @@ return new class extends Migration
             $table->string('logo_url', 255)->nullable();
             $table->string('favicon_url', 255)->nullable();
             $table->enum('status', ['active', 'suspended', 'cancelled', 'trial'])->default('trial');
+            $table->string('verification_token', 100)->nullable();
+            $table->timestamp('email_verified_at')->nullable();
             $table->boolean('onboarding_completed')->default(false);
             $table->tinyInteger('onboarding_step')->default(1);
             $table->timestamps();

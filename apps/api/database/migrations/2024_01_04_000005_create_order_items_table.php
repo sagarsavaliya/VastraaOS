@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('order_items', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('order_id')->constrained()->onDelete('cascade');
             $table->foreignId('item_type_id')->constrained()->onDelete('restrict');
             $table->string('item_name', 100)->nullable(); // Custom name override
@@ -38,6 +39,7 @@ return new class extends Migration
 
             // Assignment
             $table->foreignId('assigned_worker_id')->nullable()->constrained('workers')->onDelete('set null');
+            $table->foreignId('assigned_user_id')->nullable()->constrained('users')->onDelete('set null');
             $table->decimal('worker_payment_amount', 10, 2)->default(0);
             $table->enum('worker_payment_status', ['pending', 'paid'])->default('pending');
 

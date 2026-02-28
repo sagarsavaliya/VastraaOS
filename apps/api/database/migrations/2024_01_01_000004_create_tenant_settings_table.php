@@ -16,6 +16,7 @@ return new class extends Migration
             $table->boolean('gst_module_enabled')->default(false);
             $table->string('gst_number', 15)->nullable();
             $table->string('gst_registered_name', 255)->nullable();
+            $table->string('pan_number', 10)->nullable();
             $table->decimal('hidden_gst_percentage', 5, 2)->default(0);
 
             // Invoice Settings
@@ -28,7 +29,11 @@ return new class extends Migration
             $table->boolean('enable_itc_tracking')->default(false);
             $table->string('currency', 3)->default('INR');
             $table->string('timezone', 50)->default('Asia/Kolkata');
+            $table->string('date_format', 20)->default('DD/MM/YYYY');
             $table->enum('measurement_unit', ['inches', 'cm'])->default('inches');
+            $table->text('terms_and_conditions')->nullable();
+            $table->text('invoice_notes')->nullable();
+            $table->boolean('two_factor_enabled')->default(false);
 
             $table->timestamps();
 
