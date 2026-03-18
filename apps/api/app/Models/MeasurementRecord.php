@@ -15,6 +15,7 @@ class MeasurementRecord extends Model
     protected $fillable = [
         'tenant_id',
         'measurement_profile_id',
+        'record_name',
         'recorded_date',
         'notes',
         'is_latest',

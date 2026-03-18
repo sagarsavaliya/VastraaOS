@@ -76,3 +76,13 @@ export const getUsers = async () => {
     const response = await api.get('/users');
     return response.data;
 };
+
+export const rejectTask = async (id, data) => {
+    const response = await api.put(`/workflow/tasks/${id}/reject`, data);
+    return response.data;
+};
+
+export const setCoordinator = async (itemId, userId) => {
+    const response = await api.post(`/workflow/items/${itemId}/coordinator`, { user_id: userId });
+    return response.data;
+};

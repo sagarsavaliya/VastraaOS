@@ -115,6 +115,8 @@ export const ModernButton = ({
         primary: "bg-primary text-white hover:bg-primary-hover shadow-sm hover:shadow-primary/20",
         secondary: "bg-surface text-text-main border border-border hover:border-border-hover hover:bg-background-content/10 shadow-sm",
         outline: "bg-transparent border-2 border-primary text-primary hover:bg-primary/5",
+        success: "bg-success text-white hover:bg-success/90 shadow-sm hover:shadow-success/20",
+        danger: "bg-rose-500 text-white hover:bg-rose-600 shadow-sm hover:shadow-rose-500/20",
         error: "bg-error text-white hover:bg-error/90 shadow-sm",
         ghost: "bg-transparent text-text-secondary hover:bg-background-content/30 hover:text-text-main"
     };

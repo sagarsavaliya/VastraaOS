@@ -123,6 +123,8 @@ Route::prefix('v1')->group(function () {
             Route::get('/records/{profile}', [MeasurementController::class, 'records']);
             Route::post('/records', [MeasurementController::class, 'createRecord']);
             Route::get('/records/{record}', [MeasurementController::class, 'showRecord']);
+            Route::put('/records/{record}', [MeasurementController::class, 'updateRecord']);
+            Route::delete('/records/{record}', [MeasurementController::class, 'deleteRecord']);
         });
 
         // -----------------------------------------
@@ -160,10 +162,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [WorkflowController::class, 'index']);
             Route::get('/board', [WorkflowController::class, 'board']);
             Route::get('/items/{item}', [WorkflowController::class, 'showItem']);
+            Route::post('/items/{item}/coordinator', [WorkflowController::class, 'setCoordinator']);
             Route::get('/tasks', [WorkflowController::class, 'tasks']);
             Route::get('/tasks/{task}', [WorkflowController::class, 'showTask']);
             Route::put('/tasks/{task}/status', [WorkflowController::class, 'updateTaskStatus']);
             Route::put('/tasks/{task}/assign', [WorkflowController::class, 'assignTask']);
+            Route::put('/tasks/{task}/reject', [WorkflowController::class, 'rejectTask']);
             Route::post('/tasks/{task}/comments', [WorkflowController::class, 'addComment']);
             Route::post('/tasks/{task}/photos', [WorkflowController::class, 'uploadPhotos']);
         });

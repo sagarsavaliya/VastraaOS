@@ -60,7 +60,7 @@ const Orders = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleSuccess = useCallback(() => {
+const handleSuccess = useCallback(() => {
         setIsCreateModalOpen(false);
         setIsEditModalOpen(false);
         setModalFooter(null);

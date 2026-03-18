@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Calendar, User, Briefcase, Zap, Package } from 'lucide-react';
-import { assignTask, getWorkers, getUsers, getWorkflowList } from '../services/workflowService';
+import { UserPlus, Calendar, User, Briefcase, Zap, Package, Shield } from 'lucide-react';
+import { assignTask, setCoordinator, getWorkers, getUsers, getWorkflowList } from '../services/workflowService';
 import { useToast } from '../../../components/UI/Toast';
 import { ModernSelect, ModernInput, ModernButton, ModernSearchSelect } from '../../../components/UI/CustomInputs';
 import Modal from '../../../components/UI/Modal';
@@ -13,110 +13,116 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
     const [users, setUsers] = useState([]);
     const [items, setItems] = useState([]);
     const [formData, setFormData] = useState({
-        worker_id: '',
         user_id: '',
-        assignee_type: 'worker',
+        worker_id: '',
+        apply_coordinator_to_all: false,
         item_id: '',
         due_date: new Date().toISOString().split('T')[0]
     });
 
     const selectedItemData = items.find(i => i.id === formData.item_id);
 
-    // Pre-fill and Fetch Data
+    // Determine the active task ID to assign to
+    const getActiveTaskId = (source) => {
+        const tasks = source?.workflow_tasks;
+        if (!tasks?.length) return null;
+        return (tasks.find(t => !['completed', 'skipped', 'rejected'].includes(t.status)) || tasks[0])?.id;
+    };
+
     useEffect(() => {
-        if (isOpen) {
-            const fetchData = async () => {
-                setInitialLoading(true);
-                try {
-                    const [workersRes, usersRes, itemsRes] = await Promise.all([
-                        getWorkers(),
-                        getUsers(),
-                        !task ? getWorkflowList({ per_page: 100 }) : Promise.resolve({ data: [] })
-                    ]);
+        if (!isOpen) return;
+        const fetchData = async () => {
+            setInitialLoading(true);
+            try {
+                const [workersRes, usersRes, itemsRes] = await Promise.all([
+                    getWorkers(),
+                    getUsers(),
+                    !task ? getWorkflowList({ per_page: 100 }) : Promise.resolve({ data: [] })
+                ]);
+                setWorkers(workersRes.data || []);
+                setUsers(usersRes.data || []);
+                setItems(itemsRes.data || []);
 
-                    setWorkers(workersRes.data || []);
-                    setUsers(usersRes.data || []);
-                    setItems(itemsRes.data || []);
-
-                    if (task) {
-                        // If task is an OrderItem, find the active workflow task
-                        const activeTask = task.workflow_tasks?.find(t => t.status !== 'completed') || task.workflow_tasks?.[0];
-
-                        setFormData(prev => ({
-                            ...prev,
-                            worker_id: task.assigned_worker_id || '',
-                            user_id: task.assigned_user_id || '',
-                            assignee_type: task.assigned_user_id ? 'user' : 'worker',
-                            item_id: task.id,
-                            due_date: activeTask?.due_date ? new Date(activeTask.due_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                        }));
-                    } else {
-                        setFormData({ worker_id: '', user_id: '', assignee_type: 'worker', item_id: '', due_date: new Date().toISOString().split('T')[0] });
-                    }
-                } catch (err) {
-                    console.error('Error fetching assignment data:', err);
-                    showToast('Failed to load team data', 'error');
-                } finally {
-                    setInitialLoading(false);
+                if (task) {
+                    setFormData(prev => ({
+                        ...prev,
+                        user_id: task.assigned_user_id || task.assigned_user?.id || '',
+                        worker_id: task.assigned_worker_id || task.assigned_worker?.id || '',
+                        item_id: task.id,
+                        due_date: (() => {
+                            const activeTask = task.workflow_tasks?.find(t => !['completed', 'skipped', 'rejected'].includes(t.status));
+                            return activeTask?.due_date
+                                ? new Date(activeTask.due_date).toISOString().split('T')[0]
+                                : new Date().toISOString().split('T')[0];
+                        })()
+                    }));
+                } else {
+                    setFormData({ user_id: '', worker_id: '', apply_coordinator_to_all: false, item_id: '', due_date: new Date().toISOString().split('T')[0] });
                 }
-            };
-
-            fetchData();
-        }
+            } catch (err) {
+                showToast('Failed to load team data', 'error');
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+        fetchData();
     }, [isOpen, task]);
 
     const handleAssign = async () => {
-        const selectedId = formData.assignee_type === 'user' ? formData.user_id : formData.worker_id;
-
-        if (!selectedId) {
-            showToast(`Please select a ${formData.assignee_type === 'user' ? 'team member' : 'artisan'}`, 'error');
+        const source = task || selectedItemData;
+        if (!source) {
+            showToast('Please select a production item', 'error');
+            return;
+        }
+        if (!formData.user_id && !formData.worker_id) {
+            showToast('Select at least a coordinator or an executor', 'error');
             return;
         }
 
-        const targetId = !task
-            ? (selectedItemData?.workflow_tasks?.find(t => t.status !== 'completed')?.id ||
-                selectedItemData?.workflow_tasks?.[0]?.id)
-            : (task.workflow_tasks?.find(t => t.status !== 'completed')?.id || task.workflow_tasks?.[0]?.id);
-
-        if (!targetId) {
+        const targetTaskId = getActiveTaskId(source);
+        if (!targetTaskId) {
             showToast('No active workflow task found for this item', 'error');
-            console.error('Task assignment failed: targetId is undefined', { task, selectedItemData, formData });
             return;
         }
 
         setLoading(true);
         try {
+            // Assign coordinator + executor to the active task
             const payload = {
-                ...formData,
-                user_id: formData.assignee_type === 'user' ? formData.user_id : null,
-                worker_id: formData.assignee_type === 'worker' ? formData.worker_id : null,
+                due_date: formData.due_date,
+                ...(formData.user_id ? { user_id: formData.user_id } : {}),
+                ...(formData.worker_id ? { worker_id: formData.worker_id } : {}),
             };
+            await assignTask(targetTaskId, payload);
 
-            await assignTask(targetId, payload);
-            showToast('Production assigned successfully', 'success');
+            // Propagate coordinator to all pending stages if requested
+            if (formData.apply_coordinator_to_all && formData.user_id) {
+                await setCoordinator(source.id, formData.user_id);
+            }
+
+            showToast('Assignment updated successfully', 'success');
             onSuccess && onSuccess();
             onClose();
         } catch (error) {
-            console.error('Error assigning task:', error);
-            showToast(error.response?.data?.message || 'Failed to assign production', 'error');
+            showToast(error.response?.data?.message || 'Failed to assign', 'error');
         } finally {
             setLoading(false);
         }
     };
 
+    const activeTaskStage = (() => {
+        const source = task || selectedItemData;
+        const activeTask = source?.workflow_tasks?.find(t => !['completed', 'skipped', 'rejected'].includes(t.status));
+        return activeTask?.workflow_stage?.name || source?.current_workflow_stage?.name || null;
+    })();
+
     const footer = (
         <div className="flex items-center gap-4 w-full">
-            <ModernButton
-                variant="secondary"
-                onClick={onClose}
-                className="flex-1 !rounded-xl"
-            >
-                CANCEL
-            </ModernButton>
+            <ModernButton variant="secondary" onClick={onClose} className="flex-1 !rounded-xl">CANCEL</ModernButton>
             <ModernButton
                 onClick={handleAssign}
                 loading={loading}
-                disabled={(!formData.worker_id && !formData.user_id) || (!task && !formData.item_id)}
+                disabled={!formData.worker_id && !formData.user_id}
                 variant="primary"
                 icon={Zap}
             >
@@ -129,18 +135,18 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={task ? 'Re-assign Workflow' : 'New Assignment'}
+            title={task ? 'Update Assignment' : 'New Assignment'}
             footer={footer}
             size="md"
         >
-            <div className="space-y-8">
+            <div className="space-y-6">
                 {initialLoading ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
-                        <div className="w-10 h-10 border-4 border-primary/10 border-t-primary rounded-full animate-spin"></div>
+                        <div className="w-10 h-10 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
                         <span className="text-xs font-bold text-text-muted uppercase tracking-widest animate-pulse">Syncing Team...</span>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    <>
                         {/* Item Info / Selection */}
                         <div className="bg-background-content/50 rounded-xl p-5 border border-border">
                             {!task ? (
@@ -157,57 +163,78 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
                                     icon={Package}
                                 />
                             ) : (
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Current Production</p>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Production Item</p>
                                     <p className="text-sm font-bold text-text-main flex items-center gap-2">
                                         <Package size={16} className="text-primary" />
-                                        #{task.order?.order_number || 'N/A'} - {task.item_type?.name || task.item_name || 'Item'}
+                                        #{task.order?.order_number || 'N/A'} — {task.item_type?.name || task.item_name || 'Item'}
                                     </p>
+                                    {activeTaskStage && (
+                                        <p className="text-[10px] text-text-muted mt-1">
+                                            Active Stage: <span className="text-primary font-bold">{activeTaskStage}</span>
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
 
-                        {/* Allocation Section */}
-                        <div className="bg-background-content/50 rounded-xl p-6 border border-border space-y-6">
+                        {/* Coordinator Section */}
+                        <div className="bg-background-content/50 rounded-xl p-5 border border-border space-y-4">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-full border border-border bg-primary/10 text-primary">
-                                    <UserPlus size={18} />
+                                <div className="p-2 rounded-full border border-border bg-indigo-500/10 text-indigo-500">
+                                    <Shield size={16} />
                                 </div>
-                                <h4 className="text-sm font-bold text-text-main uppercase tracking-tight">Assign Responsibility</h4>
-                            </div>
-
-                            <div className="space-y-5">
-                                <ModernSelect
-                                    label="Internal Lead (Staff)"
-                                    value={formData.user_id}
-                                    onChange={(e) => setFormData({ ...formData, user_id: e.target.value, worker_id: '', assignee_type: 'user' })}
-                                    options={users.map(u => ({ id: u.id, name: u.name }))}
-                                    placeholder="Select team member..."
-                                    icon={User}
-                                />
-
-                                <div className="relative">
-                                    <div className="absolute inset-0 flex items-center">
-                                        <div className="w-full border-t border-border"></div>
-                                    </div>
-                                    <div className="relative flex justify-center text-[10px] font-bold uppercase tracking-widest text-text-muted">
-                                        <span className="bg-surface px-4">OR</span>
-                                    </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-text-main uppercase tracking-tight">Staff Coordinator</h4>
+                                    <p className="text-[10px] text-text-muted">Oversees this item through all stages</p>
                                 </div>
-
-                                <ModernSelect
-                                    label="External Artisan (Worker)"
-                                    value={formData.worker_id}
-                                    onChange={(e) => setFormData({ ...formData, worker_id: e.target.value, user_id: '', assignee_type: 'worker' })}
-                                    options={workers.map(w => ({ id: w.id, name: w.display_name || w.name }))}
-                                    placeholder="Select artisan..."
-                                    icon={Briefcase}
-                                />
                             </div>
+                            <ModernSelect
+                                value={formData.user_id}
+                                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                                options={users.map(u => ({ id: u.id, name: u.name }))}
+                                placeholder="Select team member..."
+                                icon={User}
+                            />
+                            {formData.user_id && (
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.apply_coordinator_to_all}
+                                        onChange={(e) => setFormData({ ...formData, apply_coordinator_to_all: e.target.checked })}
+                                        className="accent-primary w-4 h-4"
+                                    />
+                                    <span className="text-xs text-text-secondary group-hover:text-text-main transition-colors">
+                                        Apply as coordinator for all pending stages
+                                    </span>
+                                </label>
+                            )}
                         </div>
 
-                        {/* Deadline Section */}
-                        <div className="bg-background-content/50 rounded-xl p-6 border border-border">
+                        {/* Executor Section */}
+                        <div className="bg-background-content/50 rounded-xl p-5 border border-border space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-full border border-border bg-primary/10 text-primary">
+                                    <Briefcase size={16} />
+                                </div>
+                                <div>
+                                    <h4 className="text-xs font-bold text-text-main uppercase tracking-tight">Stage Executor</h4>
+                                    <p className="text-[10px] text-text-muted">
+                                        Who physically does {activeTaskStage ? `"${activeTaskStage}"` : 'this stage'}
+                                    </p>
+                                </div>
+                            </div>
+                            <ModernSelect
+                                value={formData.worker_id}
+                                onChange={(e) => setFormData({ ...formData, worker_id: e.target.value })}
+                                options={workers.map(w => ({ id: w.id, name: w.display_name || w.name }))}
+                                placeholder="Select external artisan..."
+                                icon={Briefcase}
+                            />
+                        </div>
+
+                        {/* Deadline */}
+                        <div className="bg-background-content/50 rounded-xl p-5 border border-border">
                             <ModernInput
                                 type="date"
                                 label="Commitment Deadline"
@@ -216,7 +243,7 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
                                 icon={Calendar}
                             />
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
         </Modal>

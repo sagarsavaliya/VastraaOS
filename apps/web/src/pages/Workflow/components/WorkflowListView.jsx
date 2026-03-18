@@ -1,7 +1,7 @@
 import React from 'react';
 import DataTable from '../../../components/UI/DataTable';
 import ProgressRibbon from './ProgressRibbon';
-import { User, Calendar, Tag } from 'lucide-react';
+import { User, Calendar, Tag, Ruler } from 'lucide-react';
 
 const WorkflowListView = ({
     title,
@@ -23,20 +23,33 @@ const WorkflowListView = ({
         {
             header: 'Order Details',
             key: 'order_number',
-            accessor: (item) => (
-                <div className="flex flex-col gap-1 group/item">
-                    <span className="text-sm font-bold text-text-main group-hover/item:text-primary transition-colors">
-                        #{item.order?.order_number || 'N/A'}
-                    </span>
-                    <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                        <User size={12} className="opacity-70" />
-                        <span>
-                            {item.order?.customer?.display_name ||
-                                (item.order?.customer?.first_name ? `${item.order.customer.first_name} ${item.order.customer.last_name || ''}` : 'No Customer')}
-                        </span>
+            accessor: (item) => {
+                const missingMeasurements = !item.order?.measurement_profile_id;
+                const approachingStitching = (item.current_workflow_stage?.stage_order || 0) >= 8;
+                const showWarning = missingMeasurements && approachingStitching;
+
+                return (
+                    <div className="flex flex-col gap-1 group/item">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-text-main group-hover/item:text-primary transition-colors">
+                                #{item.order?.order_number || 'N/A'}
+                            </span>
+                            {showWarning && (
+                                <span title="No measurements — stitching will be blocked" className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded text-[9px] font-bold text-amber-500 uppercase">
+                                    <Ruler size={9} /> No Measurements
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                            <User size={12} className="opacity-70" />
+                            <span>
+                                {item.order?.customer?.display_name ||
+                                    (item.order?.customer?.first_name ? `${item.order.customer.first_name} ${item.order.customer.last_name || ''}` : 'No Customer')}
+                            </span>
+                        </div>
                     </div>
-                </div>
-            )
+                );
+            }
         },
         {
             header: 'Item',

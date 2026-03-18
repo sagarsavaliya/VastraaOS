@@ -21,7 +21,7 @@ class MeasurementController extends Controller
         $profiles = $customer->measurementProfiles()
             ->with(['latestRecord.measurementValues.measurementType'])
             ->orderBy('is_default', 'desc')
-            ->orderBy('name')
+            ->orderBy('profile_name')
             ->get();
 
         return response()->json([
@@ -36,7 +36,7 @@ class MeasurementController extends Controller
     {
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'name' => 'required|string|max:100',
+            'profile_name' => 'required|string|max:100',
             'description' => 'nullable|string',
             'is_default' => 'boolean',
         ]);
@@ -47,6 +47,25 @@ class MeasurementController extends Controller
         if ($validated['is_default'] ?? false) {
             MeasurementProfile::where('customer_id', $validated['customer_id'])
                 ->update(['is_default' => false]);
+        }
+
+        // If a soft-deleted profile with the same name exists, restore it
+        $existing = MeasurementProfile::withTrashed()
+            ->where('customer_id', $validated['customer_id'])
+            ->where('profile_name', $validated['profile_name'])
+            ->whereNotNull('deleted_at')
+            ->first();
+
+        if ($existing) {
+            $existing->restore();
+            $existing->update([
+                'description' => $validated['description'] ?? null,
+                'is_default'  => $validated['is_default'] ?? false,
+            ]);
+            return response()->json([
+                'message' => 'Measurement profile restored successfully',
+                'data' => $existing->fresh(),
+            ], 201);
         }
 
         $profile = MeasurementProfile::create($validated);
@@ -63,7 +82,7 @@ class MeasurementController extends Controller
     public function updateProfile(Request $request, MeasurementProfile $profile): JsonResponse
     {
         $validated = $request->validate([
-            'name' => 'sometimes|string|max:100',
+            'profile_name' => 'sometimes|string|max:100',
             'description' => 'nullable|string',
             'is_default' => 'boolean',
         ]);
@@ -111,8 +130,8 @@ class MeasurementController extends Controller
      */
     public function records(MeasurementProfile $profile): JsonResponse
     {
-        $records = $profile->records()
-            ->with(['measurementValues.measurementType', 'measuredBy'])
+        $records = $profile->measurementRecords()
+            ->with(['measurementValues.measurementType', 'recordedBy'])
             ->orderBy('measurement_date', 'desc')
             ->get();
 
@@ -128,6 +147,7 @@ class MeasurementController extends Controller
     {
         $validated = $request->validate([
             'measurement_profile_id' => 'required|exists:measurement_profiles,id',
+            'record_name' => 'required|string|max:50',
             'measurement_date' => 'required|date',
             'notes' => 'nullable|string',
             'measurements' => 'required|array|min:1',
@@ -140,6 +160,7 @@ class MeasurementController extends Controller
             $record = MeasurementRecord::create([
                 'tenant_id' => app('tenant_id'),
                 'measurement_profile_id' => $validated['measurement_profile_id'],
+                'record_name' => $validated['record_name'],
                 'recorded_date' => $validated['measurement_date'],
                 'recorded_by_user_id' => $request->user()->id,
                 'notes' => $validated['notes'] ?? null,
@@ -165,7 +186,7 @@ class MeasurementController extends Controller
 
             return response()->json([
                 'message' => 'Measurement record created successfully',
-                'data' => $record->load(['measurementValues.measurementType', 'measuredBy']),
+                'data' => $record->load(['measurementValues.measurementType', 'recordedBy']),
             ], 201);
         });
     }
@@ -175,10 +196,57 @@ class MeasurementController extends Controller
      */
     public function showRecord(MeasurementRecord $record): JsonResponse
     {
-        $record->load(['measurementValues.measurementType', 'measuredBy', 'profile.customer']);
+        $record->load(['measurementValues.measurementType', 'recordedBy', 'measurementProfile.customer']);
 
         return response()->json([
             'data' => $record,
         ]);
+    }
+
+    /**
+     * Update a measurement record (name, date, notes, set as default)
+     */
+    public function updateRecord(Request $request, MeasurementRecord $record): JsonResponse
+    {
+        $validated = $request->validate([
+            'record_name'      => 'sometimes|string|max:50',
+            'recorded_date'    => 'sometimes|date',
+            'notes'            => 'nullable|string',
+            'is_latest'        => 'sometimes|boolean',
+        ]);
+
+        if (!empty($validated['is_latest'])) {
+            $record->markAsLatest();
+            unset($validated['is_latest']);
+        }
+
+        $record->update($validated);
+
+        return response()->json([
+            'message' => 'Measurement record updated',
+            'data'    => $record->fresh()->load('measurementValues.measurementType'),
+        ]);
+    }
+
+    /**
+     * Delete a measurement record and its values
+     */
+    public function deleteRecord(MeasurementRecord $record): JsonResponse
+    {
+        $profileId = $record->measurement_profile_id;
+        $wasLatest = $record->is_latest;
+
+        $record->measurementValues()->delete();
+        $record->delete();
+
+        // If we deleted the latest, promote the most recent remaining record
+        if ($wasLatest) {
+            $next = MeasurementRecord::where('measurement_profile_id', $profileId)
+                ->latest('recorded_date')
+                ->first();
+            $next?->markAsLatest();
+        }
+
+        return response()->json(['message' => 'Measurement record deleted']);
     }
 }

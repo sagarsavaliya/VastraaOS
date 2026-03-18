@@ -16,8 +16,8 @@ const SignIn = () => {
 
     // Credentials step
     const [formData, setFormData] = useState({
-        email: 'owner@demo.naariarts.com',
-        password: 'demo@123',
+        email: 'superuser@vastraaos.com',
+        password: 'super@128',
     });
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);

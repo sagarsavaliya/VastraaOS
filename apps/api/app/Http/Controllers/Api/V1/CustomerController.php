@@ -205,7 +205,8 @@ class CustomerController extends Controller
     public function measurements(Customer $customer): JsonResponse
     {
         $profiles = $customer->measurementProfiles()
-            ->with(['records.values.measurementType'])
+            ->with(['measurementRecords.measurementValues.measurementType'])
+            ->orderBy('is_default', 'desc')
             ->get();
 
         return response()->json([

@@ -14,14 +14,14 @@ export const defaultTheme = {
 
         // Neutral Colors
         '--color-background': '#ffffff',
-        '--color-background-content': '#f1f5f9', // Slate 100
+        '--color-background-content': '#f0f4f8',
         '--color-surface': '#ffffff',
-        '--color-surface-hover': '#f8fafc',
-        '--color-text-main': '#0f172a',    // Slate 900
-        '--color-text-secondary': '#64748b', // Slate 500
-        '--color-text-muted': '#94a3b8',   // Slate 400
-        '--color-border': '#e2e8f0',       // Slate 200
-        '--color-border-hover': '#cbd5e1', // Slate 300
+        '--color-surface-hover': '#f0f4f8',
+        '--color-text-main': '#0d1117',
+        '--color-text-secondary': '#4a5568',
+        '--color-text-muted': '#718096',
+        '--color-border': '#e2e8f0',
+        '--color-border-hover': '#cbd5e0',
 
         // Typography
         '--font-family-base': '"Inter", system-ui, sans-serif',
@@ -60,16 +60,16 @@ export const defaultTheme = {
         '--color-error': '#f87171',
         '--color-info': '#60a5fa',
 
-        // Neutral Colors
-        '--color-background': '#0f172a', // Slate 900
-        '--color-background-content': '#020617', // Slate 950
-        '--color-surface': '#1e293b', // Slate 800
-        '--color-surface-hover': '#334155', // Slate 700
-        '--color-text-main': '#f8fafc', // Slate 50
-        '--color-text-secondary': '#94a3b8', // Slate 400
-        '--color-text-muted': '#64748b', // Slate 500
-        '--color-border': '#334155', // Slate 700
-        '--color-border-hover': '#475569', // Slate 600
+        // Neutral Colors — Deep Navy (GitHub Dark / Linear style)
+        '--color-background': '#0d1117',
+        '--color-background-content': '#010409',
+        '--color-surface': '#161b27',
+        '--color-surface-hover': '#1e2535',
+        '--color-text-main': '#e6edf3',
+        '--color-text-secondary': '#8b949e',
+        '--color-text-muted': '#6e7681',
+        '--color-border': '#21262d',
+        '--color-border-hover': '#30363d',
 
         // Typography (Same as light usually, but can be overridden)
         '--font-family-base': '"Inter", system-ui, sans-serif',

@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Package, User, Calendar, Clock, CheckCircle, Camera, MessageSquare, Edit, Zap, Send, ClipboardList, Briefcase, Scissors, Disc, AlertCircle, Plus, ImageUp } from 'lucide-react';
-import { getWorkflowItem, addComment, getWorkflowStages } from '../services/workflowService';
+import { Package, User, Calendar, Clock, CheckCircle, Camera, MessageSquare, Edit, Zap, Send, ClipboardList, Briefcase, Scissors, Disc, AlertCircle, Plus, ImageUp, Play, XCircle, SkipForward, RotateCcw, Ruler, ArrowRight, UserPlus } from 'lucide-react';
+import { getWorkflowItem, addComment, getWorkflowStages, updateTaskStatus } from '../services/workflowService';
 import WorkflowTimeline from './WorkflowTimeline';
+import RejectionModal from './RejectionModal';
 import { ModernButton } from '../../../components/UI/CustomInputs';
 import { useToast } from '../../../components/UI/Toast';
 import Modal from '../../../components/UI/Modal';
+import { useAuth } from '../../../contexts/AuthContext';
 
-const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploadClick }) => {
+const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploadClick, onStatusUpdate }) => {
     const { showToast } = useToast();
+    const { user } = useAuth();
+    const isManagerOrOwner = user?.roles?.some(r => ['owner', 'manager'].includes(r.name));
+
     const [item, setItem] = useState(null);
     const [stages, setStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submittingComment, setSubmittingComment] = useState(false);
     const [newComment, setNewComment] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
+    const [isRejectionOpen, setIsRejectionOpen] = useState(false);
+    const [stageNotes, setStageNotes] = useState('');
 
     useEffect(() => {
         if (isOpen && taskId) {
@@ -40,6 +48,40 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
             showToast('Failed to load production details', 'error');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const activeTask = item?.workflow_tasks?.find(t => !['completed', 'skipped', 'rejected'].includes(t.status));
+    const hasMeasurements = !!item?.order?.measurement_profile_id;
+    const approachingStitching = item?.current_workflow_stage?.stage_order >= 8;
+    const isActiveTaskAssigned = !!(activeTask?.assigned_to_worker_id || activeTask?.assigned_to_user_id
+        || item?.assigned_worker_id || item?.assigned_user_id);
+
+    const handleStageAction = async (status, notes = '') => {
+        if (!activeTask) return;
+        setActionLoading(true);
+        try {
+            await updateTaskStatus(activeTask.id, { status, notes });
+            showToast(
+                status === 'completed' ? 'Stage completed — moved to next stage' :
+                status === 'in_progress' ? 'Stage started' : 'Stage skipped',
+                'success'
+            );
+            setStageNotes('');
+            await fetchItemDetails();
+            onStatusUpdate && onStatusUpdate();
+        } catch (error) {
+            const msg = error.response?.data?.message || 'Failed to update stage';
+            const code = error.response?.data?.error_code;
+            if (code === 'PHOTO_REQUIRED') {
+                showToast('Upload a photo before completing this stage', 'error');
+            } else if (code === 'MEASUREMENTS_REQUIRED') {
+                showToast(msg, 'error');
+            } else {
+                showToast(msg, 'error');
+            }
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -139,6 +181,140 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
                             </div>
                         </div>
 
+                        {/* Draft Order Blocker */}
+                        {item.order?.status?.code === 'DRAFT' && (
+                            <div className="p-4 bg-slate-500/10 border border-slate-500/30 rounded-xl flex items-start gap-3">
+                                <AlertCircle size={18} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Order Not Confirmed</p>
+                                    <p className="text-xs text-text-secondary">
+                                        This order is still in <span className="font-bold text-slate-300">Draft</span> status. Confirm the order first before assigning tasks or starting production.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Measurement Warning Banner */}
+                        {!hasMeasurements && approachingStitching && (
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
+                                <Ruler size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-amber-500 uppercase tracking-widest mb-1">Measurements Missing</p>
+                                    <p className="text-xs text-text-secondary">
+                                        Stitching (Stage 10) will be blocked until a measurement profile is added to this order.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Active Stage Action Panel */}
+                        {activeTask && item.order?.status?.code !== 'DRAFT' && (
+                            <div className="bg-background-content/50 rounded-xl p-5 border border-primary/20 shadow-sm">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                                        <span className="text-xs font-bold text-text-main uppercase tracking-widest">
+                                            Active Stage: {activeTask.workflow_stage?.name}
+                                        </span>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                                        activeTask.status === 'in_progress'
+                                            ? 'bg-primary/10 text-primary border-primary/20'
+                                            : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                    }`}>
+                                        {activeTask.status?.replace('_', ' ')}
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {activeTask.status === 'pending' && (
+                                        isActiveTaskAssigned ? (
+                                            <ModernButton
+                                                variant="primary"
+                                                size="sm"
+                                                icon={Play}
+                                                loading={actionLoading}
+                                                onClick={() => handleStageAction('in_progress')}
+                                            >
+                                                Start Work
+                                            </ModernButton>
+                                        ) : (
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                                    <AlertCircle size={14} className="text-amber-500" />
+                                                    <span className="text-xs font-bold text-amber-500">Assign someone before starting</span>
+                                                </div>
+                                                <ModernButton
+                                                    variant="primary"
+                                                    size="sm"
+                                                    icon={UserPlus}
+                                                    onClick={() => onAssignClick && onAssignClick(item)}
+                                                >
+                                                    Assign & Start
+                                                </ModernButton>
+                                            </div>
+                                        )
+                                    )}
+                                    {activeTask.status === 'in_progress' && (
+                                        <div className="w-full space-y-3">
+                                            {activeTask.workflow_stage?.requires_photo && !activeTask.photos?.length && (
+                                                <p className="text-[10px] text-amber-500 flex items-center gap-1">
+                                                    <AlertCircle size={12} /> Photo upload required before completing this stage
+                                                </p>
+                                            )}
+                                            <textarea
+                                                rows={2}
+                                                value={stageNotes}
+                                                onChange={(e) => setStageNotes(e.target.value)}
+                                                placeholder="Add a note for this stage (optional)..."
+                                                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:border-primary/50 resize-none"
+                                            />
+                                            <div className="flex items-center gap-3">
+                                                {!isActiveTaskAssigned && (
+                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                                                        <AlertCircle size={14} className="text-amber-500" />
+                                                        <span className="text-xs font-bold text-amber-500">Unassigned</span>
+                                                    </div>
+                                                )}
+                                                <ModernButton
+                                                    variant="success"
+                                                    size="sm"
+                                                    icon={CheckCircle}
+                                                    loading={actionLoading}
+                                                    onClick={() => handleStageAction('completed', stageNotes)}
+                                                >
+                                                    Mark Complete
+                                                </ModernButton>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {isManagerOrOwner && (
+                                        <>
+                                            <ModernButton
+                                                variant="ghost"
+                                                size="sm"
+                                                icon={SkipForward}
+                                                loading={actionLoading}
+                                                onClick={() => handleStageAction('skipped')}
+                                                className="border border-border/60 text-text-muted"
+                                            >
+                                                Skip Stage
+                                            </ModernButton>
+                                            <ModernButton
+                                                variant="danger"
+                                                size="sm"
+                                                icon={RotateCcw}
+                                                onClick={() => setIsRejectionOpen(true)}
+                                                className="ml-auto"
+                                            >
+                                                Reject Stage
+                                            </ModernButton>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Progression Banner */}
                         <div className="bg-background-content/50 rounded-xl p-5 border border-border shadow-sm">
                             <div className="flex items-center justify-between mb-8">
@@ -157,6 +333,12 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
                                 currentStageId={item.current_workflow_stage_id}
                                 completedStageIds={item.workflow_tasks?.filter(t => t.status === 'completed').map(t => t.workflow_stage_id) || []}
                                 skippedStageIds={item.workflow_tasks?.filter(t => t.status === 'skipped').map(t => t.workflow_stage_id) || []}
+                                workflowTasks={item.workflow_tasks || []}
+                                canAssign={isManagerOrOwner}
+                                onStageClick={(stageTask) => {
+                                    // Build a minimal item proxy so AssignTaskModal can work
+                                    onAssignClick && onAssignClick({ ...item, _overrideTaskId: stageTask.id, workflow_tasks: [stageTask] });
+                                }}
                             />
                         </div>
 
@@ -397,6 +579,17 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
                     </div>
                 )}
             </div>
+
+            <RejectionModal
+                isOpen={isRejectionOpen}
+                onClose={() => setIsRejectionOpen(false)}
+                task={activeTask}
+                completedTasks={item?.workflow_tasks || []}
+                onSuccess={() => {
+                    fetchItemDetails();
+                    onStatusUpdate && onStatusUpdate();
+                }}
+            />
         </Modal>
     );
 };

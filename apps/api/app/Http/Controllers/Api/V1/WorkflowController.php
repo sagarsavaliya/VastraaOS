@@ -11,6 +11,7 @@ use App\Models\WorkflowTaskComment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class WorkflowController extends Controller
 {
@@ -286,8 +287,15 @@ class WorkflowController extends Controller
      */
     public function updateTaskStatus(Request $request, OrderWorkflowTask $task): JsonResponse
     {
+        if ($task->order?->status?->code === 'DRAFT') {
+            return response()->json([
+                'message' => 'This order is still a draft. Confirm the order before starting production.',
+                'error_code' => 'ORDER_DRAFT',
+            ], 422);
+        }
+
         $validated = $request->validate([
-            'status' => 'required|in:pending,in_progress,completed,skipped',
+            'status' => 'required|in:pending,in_progress,completed,skipped,rejected',
             'notes' => 'nullable|string',
         ]);
 
@@ -314,6 +322,7 @@ class WorkflowController extends Controller
                 if ($task->workflowStage->requires_photo && empty($task->photos)) {
                     return response()->json([
                         'message' => 'This stage requires a photo before completion',
+                        'error_code' => 'PHOTO_REQUIRED',
                     ], 422);
                 }
 
@@ -321,11 +330,18 @@ class WorkflowController extends Controller
                 if ($task->requires_approval && !$task->is_approved) {
                     return response()->json([
                         'message' => 'This task requires approval before completion',
+                        'error_code' => 'APPROVAL_REQUIRED',
                     ], 422);
                 }
 
-                // Update order item's current workflow stage to next stage
-                $this->advanceToNextStage($task);
+                // Advance to next stage (may be blocked by measurement gate)
+                $blockMessage = $this->advanceToNextStage($task);
+                if ($blockMessage) {
+                    return response()->json([
+                        'message' => $blockMessage,
+                        'error_code' => 'MEASUREMENTS_REQUIRED',
+                    ], 422);
+                }
                 break;
 
             case 'skipped':
@@ -349,39 +365,164 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Assign task to user or worker
+     * Assign task to user (coordinator) and/or worker (executor).
+     * Both can coexist: user_id = staff coordinator, worker_id = stage executor.
      */
     public function assignTask(Request $request, OrderWorkflowTask $task): JsonResponse
     {
+        if ($task->order?->status?->code === 'DRAFT') {
+            return response()->json([
+                'message' => 'This order is still a draft. Confirm the order before assigning tasks.',
+                'error_code' => 'ORDER_DRAFT',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'user_id' => 'nullable|exists:users,id',
             'worker_id' => 'nullable|exists:workers,id',
             'due_date' => 'nullable|date',
         ]);
 
-        $task->update([
-            'assigned_to_user_id' => $validated['user_id'] ?? null,
-            'assigned_to_worker_id' => $validated['worker_id'] ?? null,
-            'due_date' => $validated['due_date'] ?? $task->due_date,
-        ]);
+        $updates = ['due_date' => $validated['due_date'] ?? $task->due_date];
+
+        // Only update fields that are explicitly provided (allow null to clear)
+        if (array_key_exists('user_id', $validated)) {
+            $updates['assigned_to_user_id'] = $validated['user_id'];
+        }
+        if (array_key_exists('worker_id', $validated)) {
+            $updates['assigned_to_worker_id'] = $validated['worker_id'];
+        }
+
+        $task->update($updates);
 
         if ($task->orderItem) {
-            $updateData = [
-                'assigned_worker_id' => $validated['worker_id'] ?? null,
-                'assigned_user_id' => $validated['user_id'] ?? null,
-            ];
-
-            // Ensure item_name is populated if current null
-            if (empty($task->orderItem->item_name) && $task->orderItem->itemType) {
-                $updateData['item_name'] = $task->orderItem->itemType->name;
+            $itemUpdate = [];
+            if (array_key_exists('worker_id', $validated)) {
+                $itemUpdate['assigned_worker_id'] = $validated['worker_id'];
             }
-
-            $task->orderItem->update($updateData);
+            if (array_key_exists('user_id', $validated)) {
+                $itemUpdate['assigned_user_id'] = $validated['user_id'];
+            }
+            if (empty($task->orderItem->item_name) && $task->orderItem->itemType) {
+                $itemUpdate['item_name'] = $task->orderItem->itemType->name;
+            }
+            if (!empty($itemUpdate)) {
+                $task->orderItem->update($itemUpdate);
+            }
         }
 
         return response()->json([
             'message' => 'Task assigned successfully',
             'data' => $task->fresh()->load(['assignedToUser', 'assignedToWorker']),
+        ]);
+    }
+
+    /**
+     * Set a staff coordinator for all pending/in-progress tasks of an order item.
+     */
+    public function setCoordinator(Request $request, OrderItem $item): JsonResponse
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        OrderWorkflowTask::where('order_item_id', $item->id)
+            ->whereIn('status', ['pending', 'in_progress'])
+            ->update(['assigned_to_user_id' => $validated['user_id']]);
+
+        $item->update(['assigned_user_id' => $validated['user_id']]);
+
+        return response()->json([
+            'message' => 'Coordinator assigned to all pending stages',
+        ]);
+    }
+
+    /**
+     * Reject/rollback the current active task to a previous stage.
+     * Default: rollback to previous stage. Optional: rollback to any earlier stage.
+     */
+    public function rejectTask(Request $request, OrderWorkflowTask $task): JsonResponse
+    {
+        if ($task->order?->status?->code === 'DRAFT') {
+            return response()->json([
+                'message' => 'This order is still a draft. Confirm the order before managing workflow.',
+                'error_code' => 'ORDER_DRAFT',
+            ], 422);
+        }
+
+        $user = $request->user();
+
+        if (!$user->hasRole(['owner', 'manager'])) {
+            return response()->json(['message' => 'Only managers and owners can reject stages'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+            'rollback_to_stage_id' => 'nullable|exists:workflow_stages,id',
+        ]);
+
+        // Ensure this task is currently active (not already completed/rejected)
+        if (in_array($task->status, ['completed', 'rejected', 'skipped'])) {
+            return response()->json(['message' => 'Only active or in-progress tasks can be rejected'], 422);
+        }
+
+        // Mark current task as rejected
+        $task->update([
+            'status' => 'rejected',
+            'notes' => $validated['reason'],
+            'completed_at' => now(),
+            'completed_by_user_id' => $user->id,
+        ]);
+
+        // Determine rollback stage
+        if (!empty($validated['rollback_to_stage_id'])) {
+            $rollbackStage = WorkflowStage::find($validated['rollback_to_stage_id']);
+
+            // Ensure rollback stage is earlier than current stage
+            if ($rollbackStage->stage_order >= $task->workflowStage->stage_order) {
+                return response()->json(['message' => 'Rollback stage must be earlier than the current stage'], 422);
+            }
+        } else {
+            // Default: previous stage
+            $rollbackStage = WorkflowStage::where('stage_order', '<', $task->workflowStage->stage_order)
+                ->where('is_active', true)
+                ->orderByDesc('stage_order')
+                ->first();
+        }
+
+        if (!$rollbackStage) {
+            return response()->json(['message' => 'No previous stage found to rollback to'], 422);
+        }
+
+        // Find the rollback stage task for this item and reset it to pending
+        $rollbackTask = OrderWorkflowTask::where('order_item_id', $task->order_item_id)
+            ->where('workflow_stage_id', $rollbackStage->id)
+            ->first();
+
+        if ($rollbackTask) {
+            $rollbackTask->update([
+                'status' => 'pending',
+                'completed_at' => null,
+                'completed_by_user_id' => null,
+                'started_at' => null,
+            ]);
+        }
+
+        // Update order item's current stage
+        if ($task->orderItem) {
+            $task->orderItem->update([
+                'current_workflow_stage_id' => $rollbackStage->id,
+                'assigned_worker_id' => $rollbackTask?->assigned_to_worker_id ?? null,
+                'assigned_user_id' => $rollbackTask?->assigned_to_user_id ?? $task->orderItem->assigned_user_id,
+            ]);
+        }
+
+        return response()->json([
+            'message' => "Stage rejected and rolled back to \"{$rollbackStage->name}\"",
+            'data' => [
+                'rejected_stage' => $task->workflowStage->name,
+                'rolled_back_to' => $rollbackStage->name,
+            ],
         ]);
     }
 
@@ -441,9 +582,10 @@ class WorkflowController extends Controller
     }
 
     /**
-     * Advance order item to next workflow stage
+     * Advance order item to next workflow stage.
+     * Returns null on success, or an error message string if blocked.
      */
-    private function advanceToNextStage(OrderWorkflowTask $completedTask): void
+    private function advanceToNextStage(OrderWorkflowTask $completedTask): ?string
     {
         $currentStage = $completedTask->workflowStage;
 
@@ -454,24 +596,31 @@ class WorkflowController extends Controller
             ->first();
 
         if ($nextStage && $completedTask->orderItem) {
+            // Measurement gate: block advancement to stitching stages without a measurement profile
+            if (in_array($nextStage->code, ['STITCHING_ASSIGNED', 'STITCHING_IN_PROGRESS'])) {
+                $completedTask->order->loadMissing('measurementProfile');
+                if (empty($completedTask->order->measurement_profile_id)) {
+                    return 'Measurements are required before stitching can begin. Please add a measurement profile to this order first.';
+                }
+            }
+
             $nextTask = OrderWorkflowTask::where('order_item_id', $completedTask->order_item_id)
                 ->where('workflow_stage_id', $nextStage->id)
                 ->first();
 
             $completedTask->orderItem->update([
                 'current_workflow_stage_id' => $nextStage->id,
-                'assigned_worker_id' => $nextTask->assigned_to_worker_id ?? null,
-                'assigned_user_id' => $nextTask->assigned_to_user_id ?? null,
+                'assigned_worker_id' => $nextTask?->assigned_to_worker_id ?? null,
+                'assigned_user_id' => $nextTask?->assigned_to_user_id ?? $completedTask->orderItem->assigned_user_id,
             ]);
         }
 
         // Check if all tasks for the order are completed
         $pendingTasks = OrderWorkflowTask::where('order_id', $completedTask->order_id)
-            ->whereNotIn('status', ['completed', 'skipped'])
+            ->whereNotIn('status', ['completed', 'skipped', 'rejected'])
             ->count();
 
         if ($pendingTasks === 0) {
-            // All tasks completed - update order status to Ready
             $readyStatus = \App\Models\OrderStatus::where('code', 'READY')->first();
             if ($readyStatus) {
                 $completedTask->order->update([
@@ -479,5 +628,7 @@ class WorkflowController extends Controller
                 ]);
             }
         }
+
+        return null;
     }
 }

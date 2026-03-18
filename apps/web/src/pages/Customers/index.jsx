@@ -16,7 +16,7 @@ import { deleteCustomer } from './services/customerService';
 
 const Customers = () => {
     const { showToast } = useToast();
-    const [customers, setCustomers] = useState([]);
+const [customers, setCustomers] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tableLoading, setTableLoading] = useState(false);

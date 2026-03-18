@@ -3,11 +3,13 @@ import { X, ShoppingBag, Calendar, ArrowRight, Package, Clock, CheckCircle, Aler
 import { useToast } from '../../../components/UI/Toast';
 import { getCustomerOrders } from '../services/customerService';
 import { ModernButton } from '../../../components/UI/CustomInputs';
+import OrderDetailsModal from '../../Orders/components/OrderDetailsModal';
 
 const CustomerItemsModal = ({ customer, setFooter }) => {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
     const [orders, setOrders] = useState([]);
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
 
     useEffect(() => {
         if (customer) {
@@ -28,7 +30,7 @@ const CustomerItemsModal = ({ customer, setFooter }) => {
         try {
             const data = await getCustomerOrders(customer.id);
             // Handle both { data: [...] } and directly [...]
-            const ordersList = data?.data || data || [];
+            const ordersList = data?.data?.data || data?.data || data || [];
             setOrders(Array.isArray(ordersList) ? ordersList : []);
         } catch (err) {
             console.error('Error fetching orders:', err);
@@ -76,6 +78,7 @@ const CustomerItemsModal = ({ customer, setFooter }) => {
     }
 
     return (
+        <>
         <div className="space-y-4 p-1">
             {orders.map(order => {
                 const StatusIcon = getStatusIcon(order.status?.name);
@@ -133,6 +136,7 @@ const CustomerItemsModal = ({ customer, setFooter }) => {
                                     variant="secondary"
                                     size="sm"
                                     icon={ArrowRight}
+                                    onClick={() => setSelectedOrderId(order.id)}
                                     className="opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     View Details
@@ -154,6 +158,13 @@ const CustomerItemsModal = ({ customer, setFooter }) => {
                 );
             })}
         </div>
+
+        <OrderDetailsModal
+            isOpen={!!selectedOrderId}
+            onClose={() => setSelectedOrderId(null)}
+            orderId={selectedOrderId}
+        />
+        </>
     );
 };
 
