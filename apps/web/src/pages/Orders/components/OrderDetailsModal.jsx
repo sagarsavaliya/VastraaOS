@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, User, Calendar, CreditCard, CheckCircle, Clock, MapPin, FileText } from 'lucide-react';
 import { getOrder } from '../services/orderService';
 import Modal from '../../../components/UI/Modal';
+import OrderPaymentPanel from '../../Payments/components/OrderPaymentPanel';
 
 const OrderDetailsModal = ({ isOpen, onClose, orderId }) => {
     const [order, setOrder] = useState(null);
@@ -203,6 +204,15 @@ const OrderDetailsModal = ({ isOpen, onClose, orderId }) => {
                                 <p className="text-sm text-text-secondary leading-relaxed">{order.special_instructions}</p>
                             </div>
                         )}
+
+                        {/* Payments */}
+                        <div className="bg-background-content/50 rounded-xl p-6 border border-border">
+                            <div className="flex items-center gap-2 mb-4">
+                                <CreditCard size={18} className="text-primary" />
+                                <h3 className="text-lg font-bold text-text-main">Payments</h3>
+                            </div>
+                            <OrderPaymentPanel orderId={order.id} />
+                        </div>
                     </div>
                 ) : (
                     <div className="flex items-center justify-center py-20">

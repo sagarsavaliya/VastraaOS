@@ -15,9 +15,15 @@ class OrderPaymentSummary extends Model
     protected $fillable = [
         'order_id',
         'total_order_amount',
+        'total_invoiced_amount',
         'total_paid_amount',
         'pending_amount',
+        'advance_amount',
+        'total_invoices',
+        'total_payments',
         'last_payment_date',
+        'payment_status',
+        'last_updated_at',
     ];
 
     protected $casts = [
@@ -25,6 +31,9 @@ class OrderPaymentSummary extends Model
         'total_paid_amount' => 'decimal:2',
         'pending_amount' => 'decimal:2',
         'last_payment_date' => 'date',
+        'last_updated_at' => 'datetime',
+        'total_invoiced_amount' => 'decimal:2',
+        'advance_amount' => 'decimal:2',
     ];
 
     public function order(): BelongsTo

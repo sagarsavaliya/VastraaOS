@@ -6,6 +6,7 @@ use App\Models\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use OwenIt\Auditing\Contracts\Auditable;
 
@@ -35,6 +36,10 @@ class Payment extends Model implements Auditable
         'receipt_attachment',
         'received_by_user_id',
         'created_by_user_id',
+        'voided_at',
+        'voided_by_user_id',
+        'void_reason',
+        'advance_payment',
     ];
 
     protected $casts = [
@@ -44,6 +49,8 @@ class Payment extends Model implements Auditable
         'refund_amount' => 'decimal:2',
         'refund_date' => 'date',
         'receipt_attachment' => 'array',
+        'voided_at' => 'datetime',
+        'advance_payment' => 'boolean',
     ];
 
     /**
@@ -84,6 +91,22 @@ class Payment extends Model implements Auditable
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
+    }
+
+    /**
+     * User who voided this payment
+     */
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by_user_id');
+    }
+
+    /**
+     * Receipt files attached to this payment
+     */
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(PaymentReceipt::class);
     }
 
     /**

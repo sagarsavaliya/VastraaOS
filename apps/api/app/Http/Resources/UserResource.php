@@ -23,6 +23,7 @@ class UserResource extends JsonResource
             // Relationships
             'tenant' => $this->whenLoaded('tenant', fn() => new TenantResource($this->tenant)),
             'roles' => $this->whenLoaded('roles', fn() => $this->roles->pluck('name')),
+            'role' => $this->whenLoaded('roles', fn() => $this->roles->first()?->name ?? 'staff'),
             'permissions' => $this->whenLoaded('permissions', fn() => $this->getAllPermissions()->pluck('name')),
         ];
     }

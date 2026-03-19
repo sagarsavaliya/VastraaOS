@@ -29,7 +29,7 @@ class InvoiceResource extends JsonResource
             'seller_gstin' => $this->seller_gstin,
             'seller_name' => $this->seller_name,
             'place_of_supply' => $this->place_of_supply,
-            'is_inter_state' => $this->is_inter_state,
+            'is_inter_state' => (bool) $this->is_inter_state,
 
             // Amounts
             'subtotal' => (float) $this->subtotal,
@@ -40,12 +40,21 @@ class InvoiceResource extends JsonResource
             'igst_amount' => (float) $this->igst_amount,
             'total_tax_amount' => (float) $this->total_tax_amount,
             'total_amount' => (float) $this->total_amount,
+            'round_off_amount' => (float) ($this->round_off_amount ?? 0),
+            'grand_total' => (float) ($this->grand_total ?? $this->total_amount),
             'amount_in_words' => $this->amount_in_words,
+            'payment_status' => $this->payment_status,
+            'amount_paid' => (float) ($this->amount_paid ?? 0),
+            'amount_pending' => (float) ($this->amount_pending ?? 0),
 
             'notes' => $this->notes,
-            'e_way_bill_number' => $this->e_way_bill_number,
+            'terms_conditions' => $this->terms_conditions,
+            'eway_bill_number' => $this->eway_bill_number,
+            'issued_at' => $this->issued_at?->toISOString(),
             'sent_at' => $this->sent_at?->toISOString(),
             'paid_at' => $this->paid_at?->toISOString(),
+            'cancelled_at' => $this->cancelled_at?->toISOString(),
+            'cancellation_reason' => $this->cancellation_reason,
 
             // Relationships
             'customer' => $this->whenLoaded('customer', fn() => [

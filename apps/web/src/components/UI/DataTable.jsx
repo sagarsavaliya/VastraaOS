@@ -45,64 +45,45 @@ const DataTable = ({
 
     return (
         <div className="bg-surface rounded-2xl overflow-hidden border border-border flex flex-col shadow-sm relative z-0">
-            {/* Table Header with Search and Actions */}
-            <div className="p-4 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface">
-                <div className="flex items-center gap-3">
-                    {Icon && (
-                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                            <Icon size={20} />
+            {/* Table Header */}
+            <div className="px-4 py-3 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface">
+
+                {/* Left: title/icon (if provided) + filters */}
+                <div className="flex flex-wrap items-center gap-3">
+                    {(Icon || title) && (
+                        <div className="flex items-center gap-3 shrink-0">
+                            {Icon && (
+                                <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                    <Icon size={20} />
+                                </div>
+                            )}
+                            {title && <h3 className="font-bold text-text-main tracking-tight">{title}</h3>}
                         </div>
                     )}
-                    <h3 className="font-bold text-text-main tracking-tight">{title}</h3>
+                    {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
                 </div>
 
-                <div className="flex flex-col lg:flex-row items-center gap-3 w-full md:w-auto">
+                {/* Right: action button + search */}
+                <div className="flex items-center gap-3 shrink-0">
+                    {HeaderAction && <HeaderAction />}
 
-                    {/* Integrated Filters */}
-                    {filters && (
-                        <div className="flex items-center gap-3 w-full md:w-auto py-1 px-1">
-                            {filters}
+                    {/* Search Input */}
+                    <div className={`relative transition-all duration-300 w-64 ${searchFocused ? 'scale-[1.01]' : 'scale-100'}`}>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search size={15} className={`transition-colors duration-200 ${searchFocused ? 'text-primary' : 'text-text-muted'}`} />
                         </div>
-                    )}
-
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        {/* Header Action moved next to search */}
-                        {HeaderAction && (
-                            <div className="shrink-0">
-                                <HeaderAction />
-                            </div>
-                        )}
-
-                        {/* Styled Search Input */}
-                        <div className={`
-                            relative group transition-all duration-300 w-full md:w-80
-                            ${searchFocused ? 'scale-[1.01]' : 'scale-100'}
-                        `}>
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Search
-                                    size={18}
-                                    className={`transition-colors duration-200 ${searchFocused ? 'text-primary' : 'text-text-muted'}`}
-                                />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder={searchPlaceholder}
-                                value={searchQuery}
-                                onFocus={() => setSearchFocused(true)}
-                                onBlur={() => setSearchFocused(false)}
-                                onChange={(e) => onSearch(e.target.value)}
-                                className="
-                                    block w-full pl-10 pr-4 h-9
-                                    bg-background border border-border
-                                    rounded-xl text-sm text-text-main placeholder-text-muted
-                                    outline-none
-                                    transition-all duration-200
-                                "
-                            />
-                        </div>
+                        <input
+                            type="text"
+                            placeholder={searchPlaceholder}
+                            value={searchQuery}
+                            onFocus={() => setSearchFocused(true)}
+                            onBlur={() => setSearchFocused(false)}
+                            onChange={(e) => onSearch(e.target.value)}
+                            className="block w-full pl-9 pr-4 h-9 bg-background border border-border rounded-xl text-sm text-text-main placeholder:text-text-muted outline-none focus:border-primary/60 transition-all duration-200"
+                        />
                     </div>
-
                 </div>
+
             </div>
 
             {/* Table Content */}

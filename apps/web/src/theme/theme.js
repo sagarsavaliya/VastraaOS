@@ -26,7 +26,11 @@ export const defaultTheme = {
         // Typography
         '--font-family-base': '"Inter", system-ui, sans-serif',
         '--font-family-heading': '"Inter", system-ui, sans-serif',
+        '--font-size-xs': '12px',
+        '--font-size-sm': '14px',
         '--font-size-base': '16px',
+        '--font-size-lg': '18px',
+        '--font-size-xl': '20px',
         '--line-height-base': '1.5',
 
         // Layout
@@ -46,6 +50,8 @@ export const defaultTheme = {
         '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.05)',
         '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
         '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+        '--opacity-disabled': '0.5',
+        '--transition-speed': '200ms',
     },
     dark: {
         // Brand Colors
@@ -74,7 +80,11 @@ export const defaultTheme = {
         // Typography (Same as light usually, but can be overridden)
         '--font-family-base': '"Inter", system-ui, sans-serif',
         '--font-family-heading': '"Inter", system-ui, sans-serif',
+        '--font-size-xs': '12px',
+        '--font-size-sm': '14px',
         '--font-size-base': '16px',
+        '--font-size-lg': '18px',
+        '--font-size-xl': '20px',
         '--line-height-base': '1.5',
 
         // Layout
@@ -94,5 +104,7 @@ export const defaultTheme = {
         '--shadow-sm': '0 1px 2px 0 rgb(0 0 0 / 0.3)',
         '--shadow-md': '0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3)',
         '--shadow-lg': '0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3)',
+        '--opacity-disabled': '0.5',
+        '--transition-speed': '200ms',
     }
 };

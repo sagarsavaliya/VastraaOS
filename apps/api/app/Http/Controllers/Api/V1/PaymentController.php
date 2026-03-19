@@ -3,194 +3,340 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\RefundPaymentRequest;
+use App\Http\Requests\StorePaymentRequest;
+use App\Http\Requests\VoidPaymentRequest;
+use App\Http\Resources\PaymentReceiptResource;
+use App\Http\Resources\PaymentResource;
 use App\Models\Order;
 use App\Models\OrderNumberSequence;
-use App\Models\OrderPaymentSummary;
 use App\Models\Payment;
+use App\Models\PaymentReceipt;
+use App\Services\BillingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class PaymentController extends Controller
 {
+    public function __construct(private readonly BillingService $billingService)
+    {
+    }
+
     /**
-     * List payments
+     * List payments with optional filters. Paginated.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Payment::query()
-            ->with(['order.customer', 'invoice', 'receivedBy']);
+            ->with(['order.customer', 'invoice', 'receipts']);
 
-        // Search
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('payment_number', 'like', "%{$search}%")
-                    ->orWhere('reference_number', 'like', "%{$search}%")
-                    ->orWhereHas('order.customer', fn($q) => $q->where('name', 'like', "%{$search}%"));
+                    ->orWhere('transaction_reference', 'like', "%{$search}%")
+                    ->orWhereHas('order.customer', fn($q) => $q->where('display_name', 'like', "%{$search}%"));
             });
         }
 
-        // Filter by order
-        if ($request->has('order_id')) {
+        if ($request->filled('order_id')) {
             $query->where('order_id', $request->order_id);
         }
 
-        // Filter by payment mode
-        if ($request->has('payment_mode')) {
+        if ($request->filled('payment_mode')) {
             $query->where('payment_mode', $request->payment_mode);
         }
 
-        // Filter by status
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by date range
-        if ($request->has('from_date')) {
+        if ($request->filled('from_date')) {
             $query->whereDate('payment_date', '>=', $request->from_date);
         }
-        if ($request->has('to_date')) {
+
+        if ($request->filled('to_date')) {
             $query->whereDate('payment_date', '<=', $request->to_date);
         }
 
-        // Sorting
         $query->orderBy('payment_date', 'desc');
 
-        $payments = $query->paginate($request->get('per_page', 15));
+        $payments = $query->paginate($request->integer('per_page', 15));
 
-        return response()->json($payments);
+        return response()->json([
+            'success' => true,
+            'message' => 'Payments retrieved successfully',
+            'data'    => PaymentResource::collection($payments)->response()->getData(true),
+        ]);
     }
 
     /**
-     * Record a new payment
+     * Record a new payment.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StorePaymentRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'order_id' => 'required|exists:orders,id',
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'amount' => 'required|numeric|min:0.01',
-            'payment_mode' => 'required|in:cash,upi,card,bank_transfer,cheque,other',
-            'payment_date' => 'required|date',
-            'reference_number' => 'nullable|string|max:100',
-            'cheque_number' => 'nullable|string|max:50',
-            'cheque_date' => 'nullable|date',
-            'bank_name' => 'nullable|string|max:100',
-            'transaction_id' => 'nullable|string|max:100',
-            'notes' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         return DB::transaction(function () use ($validated, $request) {
-            $order = Order::findOrFail($validated['order_id']);
+            $order          = Order::with(['invoices', 'paymentSummary'])->findOrFail($validated['order_id']);
             $paymentSummary = $order->paymentSummary;
 
-            // Check if payment exceeds pending amount
-            if ($validated['amount'] > $paymentSummary->pending_amount) {
+            // Validate payment does not exceed outstanding amount
+            // When invoice_id is provided, validate against invoice's own outstanding balance
+            // (draft invoices aren't counted in OrderPaymentSummary yet)
+            if (!empty($validated['invoice_id'])) {
+                $invoice = \App\Models\Invoice::findOrFail($validated['invoice_id']);
+                $alreadyPaid = \App\Models\Payment::where('invoice_id', $invoice->id)
+                    ->whereIn('status', ['completed'])
+                    ->sum('amount');
+                $pendingAmount = (float) $invoice->grand_total - (float) $alreadyPaid;
+            } else {
+                $pendingAmount = $paymentSummary?->pending_amount ?? $order->total_amount ?? 0;
+            }
+
+            if ((float) $validated['amount'] > (float) $pendingAmount + 0.01) {
                 return response()->json([
-                    'message' => 'Payment amount exceeds pending amount',
-                    'pending_amount' => $paymentSummary->pending_amount,
+                    'success' => false,
+                    'message' => 'Payment amount exceeds outstanding balance (₹' . number_format($pendingAmount, 2) . ')',
+                    'data'    => null,
                 ], 422);
             }
 
-            // Generate payment number
-            $paymentNumber = $this->generatePaymentNumber();
-
-            // Create payment
-            $payment = Payment::create([
-                'tenant_id' => app('tenant_id'),
-                'order_id' => $order->id,
-                'invoice_id' => $validated['invoice_id'] ?? null,
-                'payment_number' => $paymentNumber,
-                'amount' => $validated['amount'],
-                'payment_mode' => $validated['payment_mode'],
-                'payment_date' => $validated['payment_date'],
-                'reference_number' => $validated['reference_number'] ?? null,
-                'cheque_number' => $validated['cheque_number'] ?? null,
-                'cheque_date' => $validated['cheque_date'] ?? null,
-                'bank_name' => $validated['bank_name'] ?? null,
-                'transaction_id' => $validated['transaction_id'] ?? null,
-                'status' => 'completed',
-                'notes' => $validated['notes'] ?? null,
-                'received_by_user_id' => $request->user()->id,
-            ]);
-
-            // Update payment summary
-            $newPaidAmount = $paymentSummary->total_paid_amount + $validated['amount'];
-            $newPendingAmount = $paymentSummary->total_order_amount - $newPaidAmount;
-            $paymentStatus = $newPendingAmount <= 0 ? 'paid' : 'partial';
-
-            $paymentSummary->update([
-                'total_paid_amount' => $newPaidAmount,
-                'pending_amount' => max(0, $newPendingAmount),
-                'last_payment_date' => $validated['payment_date'],
-            ]);
-
-            // Update order payment status and amounts (denormalized)
-            $order->update([
-                'amount_paid' => $newPaidAmount,
-                'amount_pending' => max(0, $newPendingAmount),
-                'payment_status' => $paymentStatus,
-            ]);
-
-            // If linked to invoice, update invoice status
-            if ($payment->invoice_id) {
-                $invoice = $payment->invoice;
-                $invoicePayments = $invoice->payments()->where('status', 'completed')->sum('amount');
-
-                if ($invoicePayments >= $invoice->total_amount) {
-                    $invoice->update([
-                        'status' => 'paid',
-                        'paid_at' => now(),
-                    ]);
+            // Determine if this is an advance payment
+            $isAdvance = (bool) ($validated['advance_payment'] ?? false);
+            if (!$isAdvance && !$validated['invoice_id']) {
+                $hasIssuedInvoice = $order->invoices()->whereIn('status', ['issued', 'paid'])->exists();
+                if (!$hasIssuedInvoice) {
+                    $isAdvance = true;
                 }
             }
 
+            $payment = Payment::create([
+                'tenant_id'             => app('tenant_id'),
+                'order_id'              => $order->id,
+                'customer_id'           => $order->customer_id,
+                'invoice_id'            => $validated['invoice_id'] ?? null,
+                'payment_number'        => $this->generatePaymentNumber(),
+                'amount'                => $validated['amount'],
+                'payment_mode'          => $validated['payment_mode'],
+                'payment_date'          => $validated['payment_date'],
+                'transaction_reference' => $validated['transaction_reference'] ?? null,
+                'cheque_number'         => $validated['cheque_number'] ?? null,
+                'cheque_date'           => $validated['cheque_date'] ?? null,
+                'bank_name'             => $validated['bank_name'] ?? null,
+                'notes'                 => $validated['notes'] ?? null,
+                'advance_payment'       => $isAdvance,
+                'status'                => 'completed',
+                'received_by_user_id'   => $request->user()->id,
+            ]);
+
+            $this->billingService->recalculateOrderPaymentSummary($order);
+
+            if ($payment->invoice_id) {
+                $this->billingService->recalculateInvoicePaymentStatus($payment->invoice);
+            }
+
             return response()->json([
+                'success' => true,
                 'message' => 'Payment recorded successfully',
-                'data' => $payment->load(['order', 'receivedBy']),
-                'summary' => $paymentSummary->fresh(),
+                'data'    => new PaymentResource($payment->load(['order.customer', 'invoice', 'receipts'])),
             ], 201);
         });
     }
 
     /**
-     * Get payment details
+     * Show a single payment.
      */
     public function show(Payment $payment): JsonResponse
     {
-        $payment->load(['order.customer', 'invoice', 'receivedBy']);
+        $payment->load(['order.customer', 'invoice', 'receipts', 'receivedBy']);
 
         return response()->json([
-            'data' => $payment,
+            'success' => true,
+            'message' => 'Payment retrieved successfully',
+            'data'    => new PaymentResource($payment),
         ]);
     }
 
     /**
-     * Get order payment summary
+     * Void a payment. Only accessible to users with the Owner role.
+     */
+    public function void(VoidPaymentRequest $request, Payment $payment): JsonResponse
+    {
+        if (!$request->user()->hasRole('Owner')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Owners can void payments',
+                'data'    => null,
+            ], 403);
+        }
+
+        if ($payment->status === 'cancelled') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment is already voided/cancelled',
+                'data'    => null,
+            ], 422);
+        }
+
+        $payment->update([
+            'status'              => 'cancelled',
+            'voided_at'           => now(),
+            'void_reason'         => $request->validated()['void_reason'],
+            'voided_by_user_id'   => $request->user()->id,
+        ]);
+
+        $order = $payment->order;
+        if ($order) {
+            $this->billingService->recalculateOrderPaymentSummary($order);
+        }
+
+        if ($payment->invoice_id) {
+            $this->billingService->recalculateInvoicePaymentStatus($payment->invoice);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment voided successfully',
+            'data'    => new PaymentResource($payment->fresh()),
+        ]);
+    }
+
+    /**
+     * Refund a payment (partial or full).
+     */
+    public function refund(RefundPaymentRequest $request, Payment $payment): JsonResponse
+    {
+        $validated = $request->validated();
+
+        if ((float) $validated['refund_amount'] > (float) $payment->amount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Refund amount cannot exceed the original payment amount',
+                'data'    => null,
+            ], 422);
+        }
+
+        if ($payment->status === 'refunded') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Payment has already been refunded',
+                'data'    => null,
+            ], 422);
+        }
+
+        $payment->update([
+            'refund_amount' => $validated['refund_amount'],
+            'refund_reason' => $validated['refund_reason'],
+            'refund_date'   => $validated['refund_date'],
+            'status'        => 'refunded',
+        ]);
+
+        $order = $payment->order;
+        if ($order) {
+            $this->billingService->recalculateOrderPaymentSummary($order);
+        }
+
+        if ($payment->invoice_id) {
+            $this->billingService->recalculateInvoicePaymentStatus($payment->invoice);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment refunded successfully',
+            'data'    => new PaymentResource($payment->fresh()),
+        ]);
+    }
+
+    /**
+     * Get the payment summary for an order along with the payment list.
      */
     public function orderSummary(Order $order): JsonResponse
     {
-        $summary = $order->paymentSummary;
+        $summary  = $order->paymentSummary;
         $payments = $order->payments()
-            ->with(['receivedBy', 'invoice'])
+            ->with(['invoice', 'receipts', 'receivedBy'])
             ->orderBy('payment_date', 'desc')
             ->get();
 
         return response()->json([
-            'summary' => [
-                'total_amount' => (float) $summary->total_order_amount,
-                'paid_amount' => (float) $summary->total_paid_amount,
-                'pending_amount' => (float) $summary->pending_amount,
-                'payment_status' => $order->payment_status,
-                'last_payment_date' => $summary->last_payment_date?->format('Y-m-d'),
+            'success' => true,
+            'message' => 'Order payment summary retrieved successfully',
+            'data'    => [
+                'summary'  => [
+                    'total_order_amount'    => (float) ($summary?->total_order_amount ?? 0),
+                    'total_invoiced_amount' => (float) ($summary?->total_invoiced_amount ?? 0),
+                    'total_paid_amount'     => (float) ($summary?->total_paid_amount ?? 0),
+                    'pending_amount'        => (float) ($summary?->pending_amount ?? $order->total_amount ?? 0),
+                    'advance_amount'        => (float) ($summary?->advance_amount ?? 0),
+                    'payment_status'        => $summary?->payment_status ?? 'unpaid',
+                    'last_payment_date'     => $summary?->last_payment_date?->format('Y-m-d'),
+                    'total_invoices'        => $summary?->total_invoices ?? 0,
+                    'total_payments'        => $summary?->total_payments ?? 0,
+                ],
+                'payments' => PaymentResource::collection($payments),
             ],
-            'payments' => $payments,
         ]);
     }
 
     /**
-     * Generate payment number
+     * Upload a receipt file for a payment.
+     */
+    public function uploadReceipt(Request $request, Payment $payment): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+
+        $file     = $request->file('file');
+        $path     = $file->store("receipts/payments/{$payment->id}", 'public');
+        $tenantId = app('tenant_id');
+
+        $receipt = PaymentReceipt::create([
+            'tenant_id'           => $tenantId,
+            'payment_id'          => $payment->id,
+            'file_name'           => $file->getClientOriginalName(),
+            'file_path'           => $path,
+            'file_size'           => $file->getSize(),
+            'mime_type'           => $file->getMimeType(),
+            'uploaded_by_user_id' => $request->user()->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Receipt uploaded successfully',
+            'data'    => new PaymentReceiptResource($receipt),
+        ], 201);
+    }
+
+    /**
+     * Delete a specific receipt from a payment.
+     */
+    public function deleteReceipt(Payment $payment, PaymentReceipt $receipt): JsonResponse
+    {
+        if ($receipt->payment_id !== $payment->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Receipt does not belong to this payment',
+                'data'    => null,
+            ], 404);
+        }
+
+        Storage::disk('public')->delete($receipt->file_path);
+        $receipt->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Receipt deleted successfully',
+            'data'    => null,
+        ]);
+    }
+
+    /**
+     * Generate the next payment number.
      */
     private function generatePaymentNumber(): string
     {
@@ -204,10 +350,9 @@ class PaymentController extends Controller
             return $sequence->getNextNumber();
         }
 
-        // Fallback
-        $lastPayment = Payment::latest('id')->first();
-        $nextNumber = $lastPayment ? $lastPayment->id + 1 : 1;
+        // Fallback: use DB max id
+        $lastId = Payment::withTrashed()->where('tenant_id', $tenantId)->max('id') ?? 0;
 
-        return 'PAY-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return 'PAY-' . str_pad($lastId + 1, 4, '0', STR_PAD_LEFT);
     }
 }

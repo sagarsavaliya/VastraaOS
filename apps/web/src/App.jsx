@@ -11,13 +11,16 @@ import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import Workflow from './pages/Workflow';
 import Workers from './pages/Workers';
-import ThemeBuilder from './pages/ThemeBuilder';
 import SignIn from './pages/SignIn';
 import OnboardingWizard from './pages/OnboardingWizard';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 import TenantManagement from './pages/SuperAdmin/Tenants';
 import AdminManagement from './pages/SuperAdmin/Admins';
 import Settings from './pages/Settings';
+import ThemeBuilder from './pages/ThemeBuilder';
+import BillingOverview from './pages/Billing';
+import Invoices from './pages/Invoices';
+import Payments from './pages/Payments';
 import './App.css';
 
 function App() {
@@ -55,7 +58,9 @@ function App() {
                 <Route path="orders" element={<Orders />} />
                 <Route path="workflow" element={<Workflow />} />
                 <Route path="workers" element={<Workers />} />
-                <Route path="billing" element={<div style={{ padding: '2rem' }}>Billing & Invoices (Coming Soon)</div>} />
+                <Route path="billing" element={<BillingOverview />} />
+                <Route path="invoices" element={<Invoices />} />
+                <Route path="payments" element={<Payments />} />
                 <Route path="reports" element={<div style={{ padding: '2rem' }}>Business Reports (Coming Soon)</div>} />
                 <Route path="theme-builder" element={<ThemeBuilder />} />
                 <Route path="settings" element={<Settings />} />

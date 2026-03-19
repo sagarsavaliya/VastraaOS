@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\BudgetRange;
 use App\Models\EmbellishmentZone;
+use App\Models\HsnCode;
 use App\Models\InquirySource;
 use App\Models\ItemType;
 use App\Models\MeasurementType;
@@ -175,6 +176,120 @@ class MasterDataController extends Controller
 
         return response()->json([
             'data' => $query->get(),
+        ]);
+    }
+
+    /**
+     * List HSN codes: system defaults merged with tenant overrides.
+     * Tenant-specific records shadow system defaults by hsn_code.
+     */
+    public function hsnCodes(Request $request): JsonResponse
+    {
+        $tenantId = app('tenant_id');
+
+        // Fetch system defaults
+        $systemCodes = HsnCode::whereNull('tenant_id')
+            ->active()
+            ->when($request->filled('search'), fn($q) => $q->where(function ($q) use ($request) {
+                $q->where('hsn_code', 'like', '%' . $request->search . '%')
+                  ->orWhere('description', 'like', '%' . $request->search . '%');
+            }))
+            ->get()
+            ->keyBy('hsn_code');
+
+        // Fetch tenant overrides
+        $tenantCodes = HsnCode::where('tenant_id', $tenantId)
+            ->active()
+            ->when($request->filled('search'), fn($q) => $q->where(function ($q) use ($request) {
+                $q->where('hsn_code', 'like', '%' . $request->search . '%')
+                  ->orWhere('description', 'like', '%' . $request->search . '%');
+            }))
+            ->get()
+            ->keyBy('hsn_code');
+
+        // Merge: tenant overrides take precedence
+        $merged = $systemCodes->merge($tenantCodes)->sortBy('hsn_code')->values();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'HSN codes retrieved successfully',
+            'data'    => $merged,
+        ]);
+    }
+
+    /**
+     * Create a tenant-specific HSN code entry.
+     */
+    public function storeHsnCode(Request $request): JsonResponse
+    {
+        $tenantId = app('tenant_id');
+
+        $validated = $request->validate([
+            'hsn_code'    => "required|string|max:8|unique:hsn_codes,hsn_code,NULL,id,tenant_id,{$tenantId}",
+            'description' => 'required|string|max:255',
+            'gst_rate'    => 'required|numeric|min:0|max:100',
+            'is_active'   => 'nullable|boolean',
+        ]);
+
+        $hsnCode = HsnCode::create([
+            'tenant_id'   => $tenantId,
+            'hsn_code'    => $validated['hsn_code'],
+            'description' => $validated['description'],
+            'gst_rate'    => $validated['gst_rate'],
+            'is_active'   => $validated['is_active'] ?? true,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'HSN code created successfully',
+            'data'    => $hsnCode,
+        ], 201);
+    }
+
+    /**
+     * Update a tenant-owned HSN code (cannot modify system defaults).
+     */
+    public function updateHsnCode(Request $request, int $id): JsonResponse
+    {
+        $tenantId = app('tenant_id');
+
+        $hsnCode = HsnCode::where('id', $id)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'hsn_code'    => "sometimes|string|max:8|unique:hsn_codes,hsn_code,{$id},id,tenant_id,{$tenantId}",
+            'description' => 'sometimes|string|max:255',
+            'gst_rate'    => 'sometimes|numeric|min:0|max:100',
+            'is_active'   => 'nullable|boolean',
+        ]);
+
+        $hsnCode->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'HSN code updated successfully',
+            'data'    => $hsnCode->fresh(),
+        ]);
+    }
+
+    /**
+     * Delete a tenant-owned HSN code (cannot delete system defaults).
+     */
+    public function destroyHsnCode(int $id): JsonResponse
+    {
+        $tenantId = app('tenant_id');
+
+        $hsnCode = HsnCode::where('id', $id)
+            ->where('tenant_id', $tenantId)
+            ->firstOrFail();
+
+        $hsnCode->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'HSN code deleted successfully',
+            'data'    => null,
         ]);
     }
 

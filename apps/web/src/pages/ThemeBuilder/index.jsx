@@ -1,370 +1,604 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
-    Palette, Type, Layout, BoxSelect, RefreshCw, Sun, Moon,
-    Check, ChevronDown, Sliders, Zap, Sparkles, Wand2
+    Palette, Type, Layout, Sliders, Sun, Moon,
+    RefreshCw, Save, Check, ChevronDown, Eye, AlertCircle
 } from 'lucide-react';
 import { ModernButton } from '../../components/UI/CustomInputs';
 
-const ThemeBuilder = () => {
-    const { mode, toggleTheme, themeConfig, updateThemeVariable } = useTheme();
-    const currentTheme = themeConfig[mode];
-    const [activeTab, setActiveTab] = useState('colors');
+// ─── Preset colors used in color picker ──────────────────────────────────────
+const PRESET_COLORS = [
+    '#3e41df','#4f46e5','#6366f1','#818cf8',
+    '#ec4899','#f472b6',
+    '#22c55e','#16a34a',
+    '#eab308','#f97316',
+    '#ef4444','#dc2626',
+    '#3b82f6','#0ea5e9',
+    '#ffffff','#f8fafc','#e2e8f0','#94a3b8',
+    '#64748b','#334155','#1e293b','#0f172a','#000000',
+    '#0d1117','#161b27','#21262d',
+];
 
-    const handleChange = (key, value) => {
-        updateThemeVariable(key, value);
-    };
+// ─── Helper: get readable text color for a bg ─────────────────────────────────
+const getContrastColor = (hex) => {
+    try {
+        const r = parseInt(hex.slice(1,3),16);
+        const g = parseInt(hex.slice(3,5),16);
+        const b = parseInt(hex.slice(5,7),16);
+        return (r*299 + g*587 + b*114) / 1000 > 128 ? '#000000' : '#ffffff';
+    } catch { return '#ffffff'; }
+};
 
-    const TabButton = ({ id, label, icon: Icon }) => (
-        <button
-            onClick={() => setActiveTab(id)}
-            className={`
-                relative w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-sm font-bold transition-all duration-300 overflow-hidden group
-                ${activeTab === id
-                    ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
-                    : 'text-text-muted hover:bg-surface hover:text-text-main'}
-            `}
-        >
-            <Icon size={18} className={`transition-transform duration-300 ${activeTab === id ? 'scale-110' : 'group-hover:scale-110'}`} />
-            <span className="uppercase tracking-widest text-[11px] font-bold">{label}</span>
-        </button>
-    );
+// ─── ColorSwatch with popover ─────────────────────────────────────────────────
+const ColorSwatch = ({ label, variable, handleChange, currentTheme }) => {
+    const [open, setOpen] = useState(false);
+    const [hexInput, setHexInput] = useState('');
+    const containerRef = useRef(null);
+    const rawColor = currentTheme[variable] || '#000000';
+    // Native color input only supports #rrggbb (6 char), strip alpha if present
+    const color = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor : rawColor.slice(0, 7);
 
-    const SectionHeader = ({ title, description }) => (
-        <div className="mb-8">
-            <h3 className="text-xl font-bold text-text-main tracking-tight uppercase flex items-center gap-3">
-                <span className="w-6 h-1 bg-primary rounded-full" />
-                {title}
-            </h3>
-            {description && <p className="text-[11px] font-medium text-text-muted mt-2 uppercase tracking-wider">{description}</p>}
-        </div>
-    );
+    useEffect(() => { setHexInput(color); }, [color]);
 
-
-    const ControlGroup = ({ label, children }) => (
-        <div className="bg-background-content/10 p-8 rounded-[2rem] border border-border/50 hover:border-primary/30 transition-all duration-500 group shadow-lg">
-            <label className="text-[10px] font-black text-text-muted mb-6 block uppercase tracking-[0.3em] group-hover:text-primary transition-colors">{label}</label>
-            <div className="space-y-4">
-                {children}
-            </div>
-        </div>
-    );
-
-    const ColorSwatch = ({ label, variable }) => (
-        <div className="group relative flex items-center gap-4 p-3 rounded-2xl hover:bg-white/5 transition-all duration-300 border border-transparent hover:border-border/30">
-            <div className="relative w-14 h-14 rounded-2xl shadow-2xl ring-2 ring-white/10 overflow-hidden shrink-0 transition-transform group-hover:scale-110 group-hover:rotate-3 duration-500">
-                <input
-                    type="color"
-                    value={currentTheme[variable]}
-                    onChange={(e) => handleChange(variable, e.target.value)}
-                    className="absolute inset-0 w-[200%] h-[200%] -top-1/2 -left-1/2 p-0 border-0 cursor-pointer"
-                />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="text-xs font-black text-text-main truncate uppercase tracking-wider">{label}</div>
-                <div className="text-[10px] text-primary font-black uppercase tracking-widest mt-1 italic">{currentTheme[variable]}</div>
-            </div>
-        </div>
-    );
-
-    const SliderControl = ({ label, variable, min = 0, max = 100, step = 1, unit = 'px' }) => {
-        const val = parseFloat(currentTheme[variable]) || 0;
-
-        const handleSliderChange = (e) => {
-            handleChange(variable, `${e.target.value}${unit}`);
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
         };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
 
-        return (
-            <div className="mb-6 last:mb-0">
-                <div className="flex justify-between items-center mb-4">
-                    <span className="text-[10px] font-black text-text-muted uppercase tracking-widest italic">{label}</span>
-                    <span className="text-[10px] font-black text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20 tracking-widest">
-                        {currentTheme[variable]}
-                    </span>
-                </div>
-                <div className="relative group">
-                    <input
-                        type="range"
-                        min={min}
-                        max={max}
-                        step={step}
-                        value={val}
-                        onChange={handleSliderChange}
-                        className="w-full h-1.5 bg-background rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-xl [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_4px_12px_rgba(0,0,0,0.5)] [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-primary hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
-                    />
-                </div>
-            </div>
-        );
+    const handleHexChange = (val) => {
+        setHexInput(val);
+        if (/^#[0-9a-fA-F]{6}$/.test(val)) handleChange(variable, val);
     };
-
-    const SelectControl = ({ label, variable, options }) => (
-        <div className="mb-6 last:mb-0 group">
-            <div className="text-[10px] font-black text-text-muted mb-3 uppercase tracking-widest italic">{label}</div>
-            <div className="relative">
-                <select
-                    value={currentTheme[variable]}
-                    onChange={(e) => handleChange(variable, e.target.value)}
-                    className="w-full appearance-none bg-background/50 text-text-main text-xs font-bold px-5 py-4 rounded-2xl border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all cursor-pointer uppercase tracking-widest"
-                >
-                    {options.map(opt => (
-                        <option key={opt.value} value={opt.value} className="bg-surface text-text-main">{opt.label}</option>
-                    ))}
-                </select>
-                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted group-hover:text-primary transition-colors">
-                    <ChevronDown size={18} />
-                </div>
-            </div>
-        </div>
-    );
-
 
     return (
-        <div className="">
+        <div ref={containerRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen(o => !o)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-background transition-all text-left"
+            >
+                <div
+                    className="w-8 h-8 rounded-lg border border-border flex-shrink-0 shadow-sm"
+                    style={{ backgroundColor: color }}
+                />
+                <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-text-main">{label}</div>
+                    <div className="text-[10px] text-text-muted font-mono">{color}</div>
+                </div>
+                <ChevronDown size={12} className={`text-text-muted transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+            </button>
 
-            <div className="mx-auto relative z-10">
-                {/* --- Header --- */}
-                <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-16">
-                    <div>
-                        <div className="flex items-center gap-3 mb-4">
-                            <Palette className="text-primary" size={20} />
-                            <span className="text-[11px] font-bold text-primary uppercase tracking-widest">Brand Aesthetics</span>
-                        </div>
-                        <h1 className="text-5xl font-bold text-text-main tracking-tight mb-4 uppercase">
-                            Theme<span className="text-primary"> Studio</span>
-                        </h1>
-                        <p className="text-text-muted text-base font-medium max-w-2xl uppercase tracking-wider opacity-80">
-                            Customize the visual language of your workshop environment.
-                        </p>
+            {open && (
+                <div
+                    className="absolute z-[9999] top-full left-0 mt-1 w-60 bg-surface border border-border rounded-2xl shadow-2xl p-4 space-y-3"
+                    onMouseDown={e => e.stopPropagation()}
+                >
+                    {/* Color preview + native picker (overlaid opacity-0 over a colored block) */}
+                    <div className="relative w-full h-14 rounded-xl overflow-hidden border border-border cursor-pointer">
+                        <div className="absolute inset-0 rounded-xl" style={{ backgroundColor: color }} />
+                        <input
+                            type="color"
+                            value={color}
+                            onChange={e => { handleChange(variable, e.target.value); setHexInput(e.target.value); }}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            title="Open color picker"
+                        />
+                        <span
+                            className="absolute inset-0 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest pointer-events-none select-none"
+                            style={{ color: getContrastColor(color) }}
+                        >
+                            Click to pick
+                        </span>
                     </div>
 
+                    {/* Hex input */}
+                    <input
+                        type="text"
+                        value={hexInput}
+                        onChange={e => handleHexChange(e.target.value)}
+                        onKeyDown={e => e.stopPropagation()}
+                        className="w-full h-9 px-3 text-xs font-mono bg-background border border-border rounded-xl text-text-main outline-none focus:border-primary transition-colors"
+                        placeholder="#000000"
+                        maxLength={7}
+                        spellCheck={false}
+                    />
 
-                    <div className="flex items-center gap-6 rounded-[2.5rem] ">
-                        {/* Mode Switcher */}
-                        <div className="flex bg-background/50 rounded-2xl p-1.5  shadow-inner">
-                            <button
-                                onClick={() => mode === 'dark' && toggleTheme()}
-                                className={`
-                                    flex items-center gap-3 px-6 py-3 rounded-xl text-xs font-black transition-all duration-500 uppercase tracking-widest
-                                    ${mode === 'light'
-                                        ? 'bg-white text-gray-900 shadow-[0_8px_20px_rgba(255,255,255,0.2)] scale-105'
-                                        : 'text-text-muted hover:text-white'}
-                                `}
-                            >
-                                <Sun size={14} fill={mode === 'light' ? 'currentColor' : 'none'} />
-                                Light
-                            </button>
-
-                            <button
-                                onClick={() => mode === 'light' && toggleTheme()}
-                                className={`
-                                    flex items-center gap-3 px-6 py-3 rounded-xl text-xs font-black transition-all duration-500 uppercase tracking-widest
-                                    ${mode === 'dark'
-                                        ? 'bg-slate-800 text-white shadow-[0_8px_20px_rgba(0,0,0,0.5)] scale-105'
-                                        : 'text-text-muted hover:text-white'}
-                                `}
-                            >
-                                <Moon size={14} fill={mode === 'dark' ? 'currentColor' : 'none'} />
-                                Dark
-                            </button>
-
+                    {/* Preset swatches */}
+                    <div>
+                        <div className="text-[9px] text-text-muted mb-2 font-bold uppercase tracking-wider">Presets</div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {PRESET_COLORS.map(c => (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => { handleChange(variable, c); setHexInput(c); }}
+                                    className={`w-5 h-5 rounded-md border-2 transition-transform hover:scale-125 ${color === c ? 'border-primary scale-125' : 'border-transparent hover:border-border'}`}
+                                    style={{ backgroundColor: c }}
+                                    title={c}
+                                />
+                            ))}
                         </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
-                        <div className="w-px h-10 bg-white/10" />
+// ─── Slider control ───────────────────────────────────────────────────────────
+const SliderControl = ({ label, variable, min, max, step = 1, unit, currentTheme, handleChange }) => {
+    const raw = currentTheme[variable] || '0';
+    const val = parseFloat(raw) || 0;
 
+    return (
+        <div className="space-y-2">
+            <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-text-secondary">{label}</span>
+                <span className="text-[10px] font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
+                    {currentTheme[variable]}
+                </span>
+            </div>
+            <input
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={val}
+                onChange={e => handleChange(variable, `${e.target.value}${unit}`)}
+                className="w-full h-1.5 bg-background rounded-full appearance-none cursor-pointer accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-primary"
+            />
+            <div className="flex justify-between text-[9px] text-text-muted font-bold">
+                <span>{min}{unit}</span>
+                <span>{max}{unit}</span>
+            </div>
+        </div>
+    );
+};
+
+// ─── Select control ───────────────────────────────────────────────────────────
+const SelectControl = ({ label, variable, options, currentTheme, handleChange }) => (
+    <div className="space-y-1.5">
+        <label className="text-xs font-bold text-text-secondary">{label}</label>
+        <select
+            value={currentTheme[variable]}
+            onChange={e => handleChange(variable, e.target.value)}
+            className="w-full h-10 px-3 rounded-xl border border-border bg-background text-sm text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+        >
+            {options.map(opt => (
+                <option key={opt.value} value={opt.value} className="bg-surface text-text-main">
+                    {opt.label}
+                </option>
+            ))}
+        </select>
+    </div>
+);
+
+// ─── Section card (matches Settings page SectionCard) ─────────────────────────
+const SectionCard = ({ title, description, children }) => (
+    <div className="bg-surface border border-border rounded-2xl p-5 space-y-4">
+        <div className="pb-3 border-b border-border">
+            <h3 className="text-sm font-bold text-text-main">{title}</h3>
+            {description && <p className="text-xs text-text-muted mt-0.5">{description}</p>}
+        </div>
+        {children}
+    </div>
+);
+
+// ─── ColorGroup: a grid of ColorSwatches ─────────────────────────────────────
+const ColorGroup = ({ swatches, currentTheme, handleChange }) => (
+    <div className="space-y-1">
+        {swatches.map(s => (
+            <ColorSwatch
+                key={s.variable}
+                label={s.label}
+                variable={s.variable}
+                currentTheme={currentTheme}
+                handleChange={handleChange}
+            />
+        ))}
+    </div>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
+const ThemeBuilder = ({ embedded = false }) => {
+    const { mode, toggleTheme, themeConfig, updateThemeVariable, saveTheme, resetTheme, hasUnsavedChanges } = useTheme();
+    const currentTheme = themeConfig[mode];
+    const [activeTab, setActiveTab] = useState('colors');
+    const [saved, setSaved] = useState(false);
+
+    const handleChange = (key, value) => updateThemeVariable(key, value);
+
+    const handleSave = () => {
+        saveTheme();
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    };
+
+    const handleReset = () => {
+        if (confirm('Reset all theme customizations to defaults? This cannot be undone.')) {
+            resetTheme();
+        }
+    };
+
+    const tabs = [
+        { id: 'colors', label: 'Colors', icon: Palette },
+        { id: 'typography', label: 'Typography', icon: Type },
+        { id: 'shape', label: 'Shape & Spacing', icon: Layout },
+        { id: 'effects', label: 'Effects', icon: Sliders },
+        { id: 'preview', label: 'Preview', icon: Eye },
+    ];
+
+    return (
+        <div className={embedded ? 'space-y-4' : 'p-6 space-y-6'}>
+            {/* Controls bar — title shown only when standalone */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                {!embedded && (
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                            <Palette size={24} />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-text-main tracking-tight">Theme Builder</h1>
+                            <p className="text-text-secondary text-sm mt-0.5">Customize colors, typography, shapes and effects</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className={`flex items-center gap-3 ${embedded ? 'flex-wrap' : ''}`}>
+                    {/* Unsaved indicator */}
+                    {hasUnsavedChanges && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-500 rounded-xl text-xs font-bold border border-amber-500/20">
+                            <AlertCircle size={12} />
+                            Unsaved changes
+                        </div>
+                    )}
+
+                    {/* Light/Dark toggle */}
+                    <div className="flex bg-background border border-border rounded-xl p-1">
                         <button
-                            onClick={() => window.location.reload()}
-                            className="w-14 h-14 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-2xl transition-all duration-500 flex items-center justify-center shadow-lg hover:rotate-180"
-                            title="Purge Modifications"
+                            onClick={() => mode === 'dark' && toggleTheme()}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'light' ? 'bg-surface text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
                         >
-                            <RefreshCw size={24} />
+                            <Sun size={13} />Light
+                        </button>
+                        <button
+                            onClick={() => mode === 'light' && toggleTheme()}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mode === 'dark' ? 'bg-surface text-text-main shadow-sm' : 'text-text-muted hover:text-text-main'}`}
+                        >
+                            <Moon size={13} />Dark
                         </button>
                     </div>
-                </header>
 
-                <div className="grid grid-cols-12 gap-12">
+                    {/* Reset */}
+                    <button
+                        onClick={handleReset}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-all border border-border"
+                        title="Reset to defaults"
+                    >
+                        <RefreshCw size={15} />
+                    </button>
 
-                    {/* --- Sidebar Navigation --- */}
-                    <div className="col-span-12 lg:col-span-4 xl:col-span-3">
-                        <div className="sticky top-12 space-y-12">
-                            <nav className="space-y-4">
-                                <TabButton id="colors" label="Color Palette" icon={Palette} />
-                                <TabButton id="typography" label="Typography" icon={Type} />
-                                <TabButton id="layout" label="Layout" icon={Layout} />
-                                <TabButton id="effects" label="Visual Effects" icon={BoxSelect} />
-                            </nav>
+                    {/* Save */}
+                    <button
+                        onClick={handleSave}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${saved ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-primary text-white hover:bg-primary-hover shadow-sm'}`}
+                    >
+                        {saved ? <><Check size={14} /> Saved</> : <><Save size={14} /> Save Theme</>}
+                    </button>
+                </div>
+            </div>
 
+            {/* Two-col layout */}
+            <div className="flex flex-col lg:flex-row gap-6">
 
-                            {/* Render Engine Card */}
-                            <div className="p-10 bg-surface/20 rounded-[3rem] border border-white/10 hidden lg:block relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-100 transition-opacity duration-1000">
-                                    <Sparkles size={48} className="text-primary rotate-12" />
-                                </div>
-                                <h4 className="text-[11px] font-bold text-text-muted mb-8 flex items-center gap-3 uppercase tracking-wider">
-                                    <div className="w-2 h-2 rounded-full bg-primary" />
-                                    Live Preview
-                                </h4>
+                {/* Sidebar nav — matches Settings page exactly */}
+                <div className="lg:w-64 flex-shrink-0">
+                    <div className="bg-surface border border-border rounded-[2rem] p-4 sticky top-6">
+                        <nav className="space-y-1">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all ${
+                                        activeTab === tab.id
+                                            ? 'bg-primary text-white shadow-sm'
+                                            : 'text-text-muted hover:bg-background hover:text-text-main'
+                                    }`}
+                                >
+                                    <tab.icon size={17} />
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </nav>
 
-                                <div className="space-y-6">
-                                    <ModernButton
-                                        variant="primary"
-                                        className="w-full !rounded-[1.5rem] !py-5 shadow-2xl shadow-primary/20 scale-105"
-                                    >
-                                        PRIMARY ACTION
-                                    </ModernButton>
-                                    <ModernButton
-                                        variant="ghost"
-                                        className="w-full !rounded-[1.5rem] !py-5 border-2 border-primary/30"
-                                    >
-                                        SECONDARY FLOW
-                                    </ModernButton>
-                                    <div className="pt-4 p-6 bg-background/40 rounded-3xl ">
-                                        <p className="text-sm font-bold text-text-main leading-relaxed tracking-tight italic">
-                                            "The <span className="text-primary">convergence</span> of fabric and intelligence creates the next generation of industrial design."
-                                        </p>
-                                    </div>
+                        {/* Mode indicator */}
+                        <div className="mt-5 pt-5 border-t border-border">
+                            <div className="px-3 py-2 rounded-xl bg-background">
+                                <div className="text-[10px] text-text-muted font-bold uppercase tracking-wider mb-1">Editing mode</div>
+                                <div className="text-xs font-bold text-text-main capitalize flex items-center gap-1.5">
+                                    {mode === 'dark' ? <Moon size={12} className="text-primary" /> : <Sun size={12} className="text-amber-400" />}
+                                    {mode} theme
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* --- Main Configuration Area --- */}
-                    <div className="col-span-12 lg:col-span-8 xl:col-span-9">
-                        <div className="pl-8 animate-in fade-in slide-in-from-right-12 duration-1000">
+                {/* Content area */}
+                <div className="flex-grow space-y-4">
 
-                            {/* COLORS */}
-                            {activeTab === 'colors' && (
-                                <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    <section>
-                                        <SectionHeader title="Brand Colors" description="Define the primary and secondary colors for your brand." />
+                    {/* ── COLORS ── */}
+                    {activeTab === 'colors' && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <SectionCard title="Brand Colors" description="Primary and secondary brand identity">
+                                    <ColorGroup handleChange={handleChange} currentTheme={currentTheme} swatches={[
+                                        { label: 'Primary', variable: '--color-primary' },
+                                        { label: 'Primary Hover', variable: '--color-primary-hover' },
+                                        { label: 'Secondary', variable: '--color-secondary' },
+                                        { label: 'Secondary Hover', variable: '--color-secondary-hover' },
+                                    ]} />
+                                </SectionCard>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <ControlGroup label="Primary Spectrum">
-                                                <ColorSwatch label="Base Frequency" variable="--color-primary" />
-                                                <ColorSwatch label="Hover State" variable="--color-primary-hover" />
-                                            </ControlGroup>
-                                            <ControlGroup label="Secondary Array">
-                                                <ColorSwatch label="Accent Core" variable="--color-secondary" />
-                                                <ColorSwatch label="Accent Pulse" variable="--color-secondary-hover" />
-                                            </ControlGroup>
-                                        </div>
-                                    </section>
+                                <SectionCard title="Status Colors" description="Semantic colors for feedback and alerts">
+                                    <ColorGroup handleChange={handleChange} currentTheme={currentTheme} swatches={[
+                                        { label: 'Success', variable: '--color-success' },
+                                        { label: 'Warning', variable: '--color-warning' },
+                                        { label: 'Error', variable: '--color-error' },
+                                        { label: 'Info', variable: '--color-info' },
+                                    ]} />
+                                </SectionCard>
+                            </div>
 
-                                    <section>
-                                        <SectionHeader title="Status Protocols" description="Semantic signals for system communication." />
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                            <ControlGroup label="Success"><ColorSwatch label="Positive" variable="--color-success" /></ControlGroup>
-                                            <ControlGroup label="Warning"><ColorSwatch label="Caution" variable="--color-warning" /></ControlGroup>
-                                            <ControlGroup label="Error"><ColorSwatch label="Critical" variable="--color-error" /></ControlGroup>
-                                            <ControlGroup label="Info"><ColorSwatch label="Neutral" variable="--color-info" /></ControlGroup>
-                                        </div>
-                                    </section>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <SectionCard title="Backgrounds" description="Page and content backgrounds">
+                                    <ColorGroup handleChange={handleChange} currentTheme={currentTheme} swatches={[
+                                        { label: 'Background', variable: '--color-background' },
+                                        { label: 'Background Content', variable: '--color-background-content' },
+                                    ]} />
+                                </SectionCard>
 
-                                    <section>
-                                        <SectionHeader title="The Void & Surface" description="Atmospheric depth and information containers." />
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                            <ControlGroup label="Atmosphere">
-                                                <ColorSwatch label="Base Void" variable="--color-background" />
-                                                <ColorSwatch label="Work Area" variable="--color-background-content" />
-                                                <ColorSwatch label="Material" variable="--color-surface" />
-                                            </ControlGroup>
-                                            <ControlGroup label="Intelligence">
-                                                <ColorSwatch label="Primary Intel" variable="--color-text-main" />
-                                                <ColorSwatch label="Secondary" variable="--color-text-secondary" />
-                                                <ColorSwatch label="Muted Data" variable="--color-text-muted" />
-                                            </ControlGroup>
-                                            <ControlGroup label="Boundaries">
-                                                <ColorSwatch label="Static Line" variable="--color-border" />
-                                                <ColorSwatch label="Active Link" variable="--color-border-hover" />
-                                            </ControlGroup>
-                                        </div>
-                                    </section>
+                                <SectionCard title="Surfaces" description="Card and panel surfaces">
+                                    <ColorGroup handleChange={handleChange} currentTheme={currentTheme} swatches={[
+                                        { label: 'Surface', variable: '--color-surface' },
+                                        { label: 'Surface Hover', variable: '--color-surface-hover' },
+                                    ]} />
+                                </SectionCard>
+
+                                <SectionCard title="Borders" description="Dividers and outlines">
+                                    <ColorGroup handleChange={handleChange} currentTheme={currentTheme} swatches={[
+                                        { label: 'Border', variable: '--color-border' },
+                                        { label: 'Border Hover', variable: '--color-border-hover' },
+                                    ]} />
+                                </SectionCard>
+                            </div>
+
+                            <SectionCard title="Text Colors" description="Font colors for hierarchy and contrast">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    {[
+                                        { label: 'Primary Text', variable: '--color-text-main' },
+                                        { label: 'Secondary Text', variable: '--color-text-secondary' },
+                                        { label: 'Muted Text', variable: '--color-text-muted' },
+                                    ].map(s => (
+                                        <ColorSwatch key={s.variable} {...s} currentTheme={currentTheme} handleChange={handleChange} />
+                                    ))}
                                 </div>
-                            )}
+                            </SectionCard>
+                        </>
+                    )}
 
-                            {/* TYPOGRAPHY */}
-                            {activeTab === 'typography' && (
-                                <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    <section>
-                                        <SectionHeader title="Font System" description="Establish the typographic hierarchy for your interface." />
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                            <ControlGroup label="Body Logic">
-                                                <SelectControl
-                                                    label="Base Typeface"
-                                                    variable="--font-family-base"
-                                                    options={[
-                                                        { label: 'Inter (Sans-Serif)', value: '"Inter", system-ui, sans-serif' },
-                                                        { label: 'Roboto (Sans-Serif)', value: '"Roboto", sans-serif' },
-                                                        { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },
-                                                        { label: 'Georgia (Serif)', value: 'Georgia, serif' },
-                                                    ]}
-
-                                                />
-                                            </ControlGroup>
-                                            <ControlGroup label="Identity Type">
-                                                <SelectControl
-                                                    label="Heading Matrix"
-                                                    variable="--font-family-heading"
-                                                    options={[
-                                                        { label: 'Inter Bold', value: '"Inter", system-ui, sans-serif' },
-                                                        { label: 'Roboto Bold', value: '"Roboto", sans-serif' },
-                                                        { label: 'Playfair Luxe', value: '"Playfair Display", serif' },
-                                                    ]}
-                                                />
-                                            </ControlGroup>
-                                        </div>
-                                    </section>
+                    {/* ── TYPOGRAPHY ── */}
+                    {activeTab === 'typography' && (
+                        <>
+                            <SectionCard title="Font Families" description="Base and heading typefaces">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <SelectControl
+                                        label="Body Font"
+                                        variable="--font-family-base"
+                                        currentTheme={currentTheme}
+                                        handleChange={handleChange}
+                                        options={[
+                                            { label: 'Inter (Default)', value: '"Inter", system-ui, sans-serif' },
+                                            { label: 'Roboto', value: '"Roboto", sans-serif' },
+                                            { label: 'System Default', value: 'system-ui, -apple-system, sans-serif' },
+                                            { label: 'Georgia (Serif)', value: 'Georgia, serif' },
+                                            { label: 'Courier (Mono)', value: '"Courier New", monospace' },
+                                        ]}
+                                    />
+                                    <SelectControl
+                                        label="Heading Font"
+                                        variable="--font-family-heading"
+                                        currentTheme={currentTheme}
+                                        handleChange={handleChange}
+                                        options={[
+                                            { label: 'Inter (Default)', value: '"Inter", system-ui, sans-serif' },
+                                            { label: 'Roboto', value: '"Roboto", sans-serif' },
+                                            { label: 'Playfair Display (Serif)', value: '"Playfair Display", serif' },
+                                            { label: 'Georgia (Serif)', value: 'Georgia, serif' },
+                                        ]}
+                                    />
                                 </div>
-                            )}
+                            </SectionCard>
 
-                            {/* LAYOUT */}
-                            {activeTab === 'layout' && (
-                                <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    <section>
-                                        <SectionHeader title="Interface Layout" description="Control the spacing and dimensions of system components." />
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                            <ControlGroup label="Sidebar Extension">
-                                                <SliderControl label="Standard Span" variable="--sidebar-width" min={200} max={400} />
-                                                <SliderControl label="Collapsed Core" variable="--sidebar-collapsed-width" min={48} max={100} />
-                                            </ControlGroup>
-                                            <ControlGroup label="Curvature Logic">
-                                                <SliderControl label="Atomic (sm)" variable="--border-radius-sm" min={0} max={4} unit="rem" step={0.25} />
-                                                <SliderControl label="Standard (md)" variable="--border-radius-md" min={0} max={6} unit="rem" step={0.25} />
-                                                <SliderControl label="Complex (lg)" variable="--border-radius-lg" min={0} max={8} unit="rem" step={0.25} />
-                                                <SliderControl label="Extreme (xl)" variable="--border-radius-xl" min={0} max={12} unit="rem" step={0.25} />
-                                            </ControlGroup>
-                                        </div>
-                                    </section>
+                            <SectionCard title="Font Sizes" description="Scale affects text-base utility class globally">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="XS — Labels, badges" variable="--font-size-xs" min={10} max={14} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="SM — Secondary text" variable="--font-size-sm" min={12} max={16} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="Base — Body text" variable="--font-size-base" min={14} max={20} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="LG — Subheadings" variable="--font-size-lg" min={16} max={24} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="XL — Headings" variable="--font-size-xl" min={18} max={32} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
                                 </div>
-                            )}
+                            </SectionCard>
 
-                            {/* EFFECTS */}
-                            {activeTab === 'effects' && (
-                                <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                                    <section>
-                                        <SectionHeader title="Visual Depth" description="Configure shadows and layering for a premium feel." />
+                            <SectionCard title="Line Height & Spacing" description="Readability and vertical rhythm">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="Line Height" variable="--line-height-base" min={1} max={2.5} step={0.1} unit="" currentTheme={currentTheme} handleChange={handleChange} />
+                                </div>
+                            </SectionCard>
 
-                                        <div className="p-20 bg-background/20 rounded-[4rem]  flex flex-wrap gap-20 justify-center">
-                                            <div className="w-48 h-48 bg-surface/40 rounded-[2.5rem] shadow-sm flex items-center justify-center text-text-muted border border-white/10 font-black uppercase tracking-widest text-[10px]">
-                                                Surface
+                            {/* Live type preview */}
+                            <SectionCard title="Live Typography Preview" description="See your changes applied">
+                                <div className="space-y-4 p-4 bg-background rounded-xl border border-border">
+                                    <div style={{ fontFamily: currentTheme['--font-family-heading'], fontSize: currentTheme['--font-size-xl'] }} className="font-bold text-text-main">Heading XL — Naari Arts</div>
+                                    <div style={{ fontFamily: currentTheme['--font-family-heading'], fontSize: currentTheme['--font-size-lg'] }} className="font-bold text-text-main">Heading LG — Order Management</div>
+                                    <div style={{ fontFamily: currentTheme['--font-family-base'], fontSize: currentTheme['--font-size-base'], lineHeight: currentTheme['--line-height-base'] }} className="text-text-secondary">Body text — This is how your regular body text will look. Each garment passes through 21 stages of careful craftsmanship before delivery.</div>
+                                    <div style={{ fontFamily: currentTheme['--font-family-base'], fontSize: currentTheme['--font-size-sm'] }} className="text-text-muted">Small text — Invoice #GST-2526-0042 · Due 15 Apr 2026</div>
+                                    <div style={{ fontFamily: currentTheme['--font-family-base'], fontSize: currentTheme['--font-size-xs'] }} className="text-text-muted uppercase tracking-wider font-bold">XS Label — Status · Created By · Last Updated</div>
+                                </div>
+                            </SectionCard>
+                        </>
+                    )}
+
+                    {/* ── SHAPE & SPACING ── */}
+                    {activeTab === 'shape' && (
+                        <>
+                            <SectionCard title="Border Radius" description="Controls rounded corners on cards, buttons, inputs (affects Tailwind rounded-sm/md/lg/xl classes)">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="SM — Tags, badges" variable="--border-radius-sm" min={0} max={1} step={0.125} unit="rem" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="MD — Inputs, small cards" variable="--border-radius-md" min={0} max={1.5} step={0.125} unit="rem" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="LG — Buttons, panels" variable="--border-radius-lg" min={0} max={2} step={0.25} unit="rem" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="XL — Cards, modals" variable="--border-radius-xl" min={0} max={3} step={0.25} unit="rem" currentTheme={currentTheme} handleChange={handleChange} />
+                                </div>
+
+                                {/* Radius preview */}
+                                <div className="grid grid-cols-4 gap-3 pt-3 border-t border-border">
+                                    {['--border-radius-sm','--border-radius-md','--border-radius-lg','--border-radius-xl'].map((v, i) => (
+                                        <div key={v} className="flex flex-col items-center gap-2">
+                                            <div className="w-14 h-14 bg-primary/20 border-2 border-primary/40 flex items-center justify-center text-[9px] font-bold text-primary" style={{ borderRadius: currentTheme[v] }}>
+                                                {['SM','MD','LG','XL'][i]}
                                             </div>
-                                            <div className="w-48 h-48 bg-surface/60 rounded-[2.5rem] shadow-xl shadow-black/40 flex items-center justify-center text-text-main border border-white/20 font-black uppercase tracking-widest text-[10px] scale-105">
-                                                Elevated
-                                            </div>
-                                            <div className="w-48 h-48 bg-primary rounded-[2.5rem] shadow-[0_32px_64px_-12px_rgba(var(--color-primary-rgb),0.5)] flex items-center justify-center text-white font-black uppercase tracking-widest text-[10px] scale-110">
-                                                Peak
-                                            </div>
+                                            <span className="text-[9px] text-text-muted font-mono">{currentTheme[v]}</span>
                                         </div>
-                                        <div className="mt-12 text-center text-text-muted text-xs font-bold uppercase tracking-[0.5em] opacity-40">
-                                            Shadow algorithms are currently hardcoded in core CSS.
-                                        </div>
-                                    </section>
+                                    ))}
                                 </div>
-                            )}
+                            </SectionCard>
 
-                        </div>
-                    </div>
+                            <SectionCard title="Layout Dimensions" description="Controls sidebar width and topbar height">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="Sidebar Width" variable="--sidebar-width" min={200} max={360} step={4} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="Sidebar Collapsed" variable="--sidebar-collapsed-width" min={48} max={96} step={4} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                    <SliderControl label="Topbar Height" variable="--topbar-height" min={48} max={80} step={4} unit="px" currentTheme={currentTheme} handleChange={handleChange} />
+                                </div>
+                            </SectionCard>
+                        </>
+                    )}
+
+                    {/* ── EFFECTS ── */}
+                    {activeTab === 'effects' && (
+                        <>
+                            <SectionCard title="Opacity" description="Transparency levels for UI states">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="Disabled state opacity" variable="--opacity-disabled" min={0.1} max={0.9} step={0.05} unit="" currentTheme={currentTheme} handleChange={handleChange} />
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Transitions" description="Animation speed for hover and state changes">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <SliderControl label="Transition Speed (ms)" variable="--transition-speed" min={50} max={600} step={25} unit="ms" currentTheme={currentTheme} handleChange={handleChange} />
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Shadow Preview" description="Box shadows scale with depth (values controlled via CSS)">
+                                <div className="grid grid-cols-3 gap-4 p-4 bg-background rounded-xl">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-20 h-20 bg-surface rounded-xl shadow-sm flex items-center justify-center text-xs font-bold text-text-muted">SM</div>
+                                        <span className="text-[9px] text-text-muted uppercase tracking-wider">Subtle</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-20 h-20 bg-surface rounded-xl shadow-md flex items-center justify-center text-xs font-bold text-text-secondary">MD</div>
+                                        <span className="text-[9px] text-text-muted uppercase tracking-wider">Elevated</span>
+                                    </div>
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-20 h-20 bg-surface rounded-xl shadow-lg flex items-center justify-center text-xs font-bold text-text-main">LG</div>
+                                        <span className="text-[9px] text-text-muted uppercase tracking-wider">Floating</span>
+                                    </div>
+                                </div>
+                            </SectionCard>
+                        </>
+                    )}
+
+                    {/* ── PREVIEW ── */}
+                    {activeTab === 'preview' && (
+                        <>
+                            <SectionCard title="Button Variations" description="All button styles as they appear with current theme">
+                                <div className="flex flex-wrap gap-3 p-4 bg-background rounded-xl">
+                                    <ModernButton variant="primary">Primary Action</ModernButton>
+                                    <ModernButton variant="secondary">Secondary</ModernButton>
+                                    <ModernButton variant="outline">Outline</ModernButton>
+                                    <ModernButton variant="ghost">Ghost</ModernButton>
+                                    <ModernButton variant="danger">Danger</ModernButton>
+                                    <ModernButton variant="success">Success</ModernButton>
+                                </div>
+                                <div className="flex flex-wrap gap-3 p-4 bg-background rounded-xl">
+                                    <ModernButton variant="primary" size="sm">Small</ModernButton>
+                                    <ModernButton variant="primary" size="md">Medium</ModernButton>
+                                    <ModernButton variant="primary" size="lg">Large</ModernButton>
+                                    <ModernButton variant="primary" disabled>Disabled</ModernButton>
+                                    <ModernButton variant="primary" loading>Loading</ModernButton>
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Color Swatches" description="All theme colors at a glance">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    {[
+                                        { label: 'Primary', var: '--color-primary' },
+                                        { label: 'Secondary', var: '--color-secondary' },
+                                        { label: 'Success', var: '--color-success' },
+                                        { label: 'Warning', var: '--color-warning' },
+                                        { label: 'Error', var: '--color-error' },
+                                        { label: 'Info', var: '--color-info' },
+                                        { label: 'Background', var: '--color-background' },
+                                        { label: 'Surface', var: '--color-surface' },
+                                        { label: 'Text Main', var: '--color-text-main' },
+                                        { label: 'Text Secondary', var: '--color-text-secondary' },
+                                        { label: 'Border', var: '--color-border' },
+                                        { label: 'Background Content', var: '--color-background-content' },
+                                    ].map(({ label, var: v }) => (
+                                        <div key={v} className="flex items-center gap-2 p-2 bg-background rounded-xl border border-border">
+                                            <div className="w-8 h-8 rounded-lg border border-border flex-shrink-0" style={{ backgroundColor: currentTheme[v] }} />
+                                            <div>
+                                                <div className="text-[10px] font-bold text-text-main">{label}</div>
+                                                <div className="text-[9px] font-mono text-text-muted">{currentTheme[v]}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Form Elements" description="Inputs and controls with current theme">
+                                <div className="space-y-3 p-4 bg-background rounded-xl">
+                                    <input placeholder="Text input placeholder..." className="w-full h-10 px-4 rounded-xl border border-border bg-background-content/10 text-sm text-text-main outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+                                    <select className="w-full h-10 px-4 rounded-xl border border-border bg-background-content/10 text-sm text-text-main outline-none focus:border-primary transition-all">
+                                        <option>Select an option...</option>
+                                        <option>Lehenga Choli</option>
+                                        <option>Saree</option>
+                                    </select>
+                                    <textarea placeholder="Multi-line textarea..." rows={3} className="w-full px-4 py-2.5 rounded-xl border border-border bg-background-content/10 text-sm text-text-main outline-none focus:border-primary transition-all resize-none" />
+                                </div>
+                            </SectionCard>
+
+                            <SectionCard title="Cards & Badges" description="Component containers and status indicators">
+                                <div className="space-y-3 p-4 bg-background rounded-xl">
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary">In Progress</span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-500/10 text-green-500">Completed</span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500">Pending</span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500">Overdue</span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-500">Draft</span>
+                                    </div>
+                                    <div className="bg-surface border border-border rounded-xl p-4">
+                                        <div className="text-sm font-bold text-text-main">Sample Card</div>
+                                        <div className="text-xs text-text-secondary mt-1">This shows how cards look with the current border-radius and surface color.</div>
+                                    </div>
+                                </div>
+                            </SectionCard>
+                        </>
+                    )}
+
                 </div>
             </div>
         </div>

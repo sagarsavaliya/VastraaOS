@@ -14,6 +14,7 @@ class TenantSettingResource extends JsonResource
             'gst_number' => $this->gst_number,
             'gst_registered_name' => $this->gst_registered_name,
             'pan_number' => $this->pan_number,
+            'hidden_gst_percentage' => $this->hidden_gst_percentage,
             'gst_invoice_prefix' => $this->gst_invoice_prefix,
             'non_gst_invoice_prefix' => $this->non_gst_invoice_prefix,
             'order_prefix' => $this->order_prefix,

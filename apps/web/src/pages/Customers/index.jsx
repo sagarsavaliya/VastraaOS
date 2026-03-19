@@ -161,7 +161,7 @@ const [customers, setCustomers] = useState([]);
         <tr key={customer.id} className="hover:bg-background-content/30 transition-colors group">
             <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center border border-border border-2 justify-center text-primary font-bold relative">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center border border-border justify-center text-primary font-bold relative">
                         {customer.name.charAt(0).toUpperCase()}
                         {customer.customer_type === 'business' && (
                             <div className="absolute -top-1 -right-1 w-4 h-4 bg-secondary text-white rounded-xl flex items-center justify-center text-[8px] font-bold border border-background shadow-sm" title="Business User">

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BillingReportController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerInquiryController;
 use App\Http\Controllers\Api\V1\DashboardController;
@@ -186,17 +187,45 @@ Route::prefix('v1')->group(function () {
         // Invoices
         // -----------------------------------------
         Route::apiResource('invoices', InvoiceController::class)->except(['update']);
+        Route::patch('/invoices/{invoice}', [InvoiceController::class, 'update']);
         Route::prefix('invoices/{invoice}')->group(function () {
             Route::get('/pdf', [InvoiceController::class, 'downloadPdf']);
             Route::put('/status', [InvoiceController::class, 'updateStatus']);
             Route::post('/send', [InvoiceController::class, 'send']);
+            Route::post('/cancel', [InvoiceController::class, 'cancel']);
         });
 
         // -----------------------------------------
         // Payments
         // -----------------------------------------
         Route::apiResource('payments', PaymentController::class)->except(['update', 'destroy']);
-        Route::get('/payments/summary/{order}', [PaymentController::class, 'orderSummary']);
+        Route::prefix('payments/{payment}')->group(function () {
+            Route::post('/void', [PaymentController::class, 'void']);
+            Route::post('/refund', [PaymentController::class, 'refund']);
+            Route::post('/receipts', [PaymentController::class, 'uploadReceipt']);
+            Route::delete('/receipts/{receipt}', [PaymentController::class, 'deleteReceipt']);
+        });
+
+        // Order payment summary (order-scoped endpoint)
+        Route::get('/orders/{order}/payment-summary', [PaymentController::class, 'orderSummary']);
+
+        // -----------------------------------------
+        // Billing Reports
+        // -----------------------------------------
+        Route::prefix('billing')->group(function () {
+            Route::get('/summary', [BillingReportController::class, 'summary']);
+            Route::get('/overdue', [BillingReportController::class, 'overdue']);
+            Route::get('/receivables', [BillingReportController::class, 'receivables']);
+            Route::get('/payments-report', [BillingReportController::class, 'paymentsReport']);
+        });
+
+        // -----------------------------------------
+        // HSN Codes
+        // -----------------------------------------
+        Route::get('/hsn-codes', [MasterDataController::class, 'hsnCodes']);
+        Route::post('/hsn-codes', [MasterDataController::class, 'storeHsnCode']);
+        Route::put('/hsn-codes/{id}', [MasterDataController::class, 'updateHsnCode']);
+        Route::delete('/hsn-codes/{id}', [MasterDataController::class, 'destroyHsnCode']);
 
         // -----------------------------------------
         // Users (Team Management)

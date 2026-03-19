@@ -3,22 +3,18 @@ import api from '../../services/api';
 import { useToast } from '../../components/UI/Toast';
 import {
     Settings as SettingsIcon,
-    Globe,
-    Database,
     Zap,
     Layout,
-    FileText,
     Users,
-    CreditCard,
     ShoppingBag,
     Tag,
     Palette,
     Layers,
-    MoveUp,
-    Hash
 } from 'lucide-react';
 import PageHeader from '../../components/UI/PageHeader';
 import MasterDataSection from './MasterDataSection';
+import BusinessProfileSection from './components/BusinessProfileSection';
+import TeamSection from './components/TeamSection';
 
 const Settings = () => {
     const [activeTab, setActiveTab] = useState('general');
@@ -42,6 +38,7 @@ const Settings = () => {
 
     const tabs = [
         { id: 'general', label: 'General', icon: SettingsIcon },
+        { id: 'team', label: 'Team', icon: Users },
         { id: 'inquiry-sources', label: 'Inquiry Sources', icon: Zap },
         { id: 'occasions', label: 'Occasions', icon: Palette },
         { id: 'item-types', label: 'Item Types', icon: ShoppingBag },
@@ -54,14 +51,9 @@ const Settings = () => {
     const renderContent = () => {
         switch (activeTab) {
             case 'general':
-                return (
-                    <div className="bg-surface border border-border rounded-[2rem] p-8">
-                        <h2 className="text-xl font-bold text-text-main mb-6">Business Profile</h2>
-                        <div className="flex items-center justify-center p-12 text-text-muted italic bg-background/50 rounded-2xl border border-dashed border-border">
-                            General business settings, logo, and address management (Coming in next release)
-                        </div>
-                    </div>
-                );
+                return <BusinessProfileSection />;
+            case 'team':
+                return <TeamSection />;
             case 'inquiry-sources':
                 return (
                     <MasterDataSection
@@ -143,7 +135,7 @@ const Settings = () => {
                                 label: 'Range',
                                 render: (item) => (
                                     <span className="font-bold">
-                                        {item.min_amount.toLocaleString('en-IN')} - {item.max_amount ? item.max_amount.toLocaleString('en-IN') : '∞'}
+                                        {(item.min_amount ?? 0).toLocaleString('en-IN')} – {item.max_amount != null ? item.max_amount.toLocaleString('en-IN') : '∞'}
                                     </span>
                                 )
                             },
