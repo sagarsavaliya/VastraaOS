@@ -112,7 +112,7 @@ const Workflow = () => {
                 value={filters.priority_id}
                 options={priorities}
                 onChange={(e) => setFilters({ ...filters, priority_id: e.target.value, page: 1 })}
-                className="min-w-[140px]"
+                className="w-[120px]"
             />
             <ModernSelect
                 size="sm"
@@ -120,7 +120,7 @@ const Workflow = () => {
                 value={filters.worker_id}
                 options={workers.map(w => ({ id: w.id, name: w.display_name || w.name }))}
                 onChange={(e) => setFilters({ ...filters, worker_id: e.target.value, page: 1 })}
-                className="min-w-[140px]"
+                className="w-[120px]"
             />
             <ModernCheckbox
                 label="Completed"
@@ -193,6 +193,9 @@ const Workflow = () => {
                 onSearch={(val) => setFilters({ ...filters, search: val, page: 1 })}
                 sortConfig={{ key: filters.sort_by, direction: filters.sort_dir }}
                 onSort={handleSort}
+                priorities={priorities}
+                activePriorityId={filters.priority_id}
+                onPriorityFilter={(id) => setFilters(prev => ({ ...prev, priority_id: id, page: 1 }))}
             />
 
             {/* Modals */}

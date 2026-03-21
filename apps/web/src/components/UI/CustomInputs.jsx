@@ -122,7 +122,7 @@ export const ModernButton = ({
     };
 
     const sizes = {
-        sm: "px-3 py-1.5 text-xs font-bold gap-1.5 rounded-lg h-9",
+        sm: "px-4 py-1.5 text-xs font-bold gap-1.5 rounded-xl h-9",
         md: "px-5 py-2 text-sm font-bold gap-2 rounded-xl h-11",
         lg: "px-6 py-2.5 text-sm font-bold gap-2.5 rounded-xl h-12"
     };
@@ -154,9 +154,16 @@ export const ModernButton = ({
 /**
  * ModernSelect
  */
-export const ModernSelect = ({ label, name, value, onChange, options = [], placeholder = "Select...", error, size = "md", className = "" }) => {
+export const ModernSelect = ({ label, name, value, onChange, options = [], placeholder = "Select...", error, size = "md", className = "", autoFocus = false, ...props }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
+    const triggerRef = useRef(null);
+
+    useEffect(() => {
+        if (autoFocus && triggerRef.current) {
+            triggerRef.current.focus();
+        }
+    }, [autoFocus]);
 
     const sizes = {
         sm: "h-9 px-3",
@@ -194,6 +201,7 @@ export const ModernSelect = ({ label, name, value, onChange, options = [], place
             )}
             <div className="relative">
                 <div
+                    ref={triggerRef}
                     tabIndex={0}
                     onClick={() => setIsOpen(!isOpen)}
                     onKeyDown={handleKeyDown}
@@ -207,10 +215,10 @@ export const ModernSelect = ({ label, name, value, onChange, options = [], place
                         outline-none
                     `}
                 >
-                    <span className={selectedOption ? 'text-text-main font-medium' : 'text-text-muted/40'}>
+                    <span className={`truncate whitespace-nowrap ${selectedOption ? 'text-text-main font-medium' : 'text-text-muted/40'}`}>
                         {selectedOption ? selectedOption.name : placeholder}
                     </span>
-                    <div className={`transition-all duration-200 ${isOpen ? 'text-primary rotate-180' : 'text-text-muted'}`}>
+                    <div className={`transition-all duration-200 shrink-0 ml-1 ${isOpen ? 'text-primary rotate-180' : 'text-text-muted'}`}>
                         <ChevronDown size={16} strokeWidth={2.5} />
                     </div>
                 </div>
@@ -262,10 +270,17 @@ export const ModernSelect = ({ label, name, value, onChange, options = [], place
 /**
  * ModernSearchSelect
  */
-export const ModernSearchSelect = ({ label, name, value, onChange, options = [], placeholder = "Search and select...", error, size = "md", className = "" }) => {
+export const ModernSearchSelect = ({ label, name, value, onChange, options = [], placeholder = "Search and select...", error, size = "md", className = "", autoFocus = false, ...props }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const containerRef = useRef(null);
+    const triggerRef = useRef(null);
+
+    useEffect(() => {
+        if (autoFocus && triggerRef.current) {
+            triggerRef.current.focus();
+        }
+    }, [autoFocus]);
 
     const sizes = {
         sm: "h-9 px-3",
@@ -312,6 +327,7 @@ export const ModernSearchSelect = ({ label, name, value, onChange, options = [],
             )}
             <div className="relative">
                 <div
+                    ref={triggerRef}
                     tabIndex={0}
                     onClick={() => setIsOpen(!isOpen)}
                     onKeyDown={handleKeyDown}

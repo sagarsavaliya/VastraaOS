@@ -21,6 +21,7 @@ import ThemeBuilder from './pages/ThemeBuilder';
 import BillingOverview from './pages/Billing';
 import Invoices from './pages/Invoices';
 import Payments from './pages/Payments';
+import Expenses from './pages/Expenses/index.jsx';
 import './App.css';
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
                 <Route path="billing" element={<BillingOverview />} />
                 <Route path="invoices" element={<Invoices />} />
                 <Route path="payments" element={<Payments />} />
+                <Route path="expenses" element={<Expenses />} />
                 <Route path="reports" element={<div style={{ padding: '2rem' }}>Business Reports (Coming Soon)</div>} />
                 <Route path="theme-builder" element={<ThemeBuilder />} />
                 <Route path="settings" element={<Settings />} />

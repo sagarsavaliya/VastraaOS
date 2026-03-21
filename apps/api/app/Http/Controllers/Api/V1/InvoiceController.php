@@ -25,6 +25,40 @@ class InvoiceController extends Controller
     }
 
     /**
+     * KPI cards: total invoiced, collected, pending, cancelled for a given month/year or all-time.
+     */
+    public function kpis(Request $request): JsonResponse
+    {
+        $tenantId = app('tenant_id');
+        $consolidated = $request->boolean('consolidated');
+        $month = $request->integer('month', now()->month);
+        $year  = $request->integer('year', now()->year);
+
+        $invoiceQuery = DB::table('invoices')
+            ->where('tenant_id', $tenantId)
+            ->whereNull('deleted_at');
+
+        if (!$consolidated) {
+            $invoiceQuery->whereMonth('invoice_date', $month)->whereYear('invoice_date', $year);
+        }
+
+        $totalInvoiced  = (clone $invoiceQuery)->whereIn('status', ['issued', 'paid'])->sum('grand_total');
+        $totalCollected = (clone $invoiceQuery)->whereIn('status', ['issued', 'paid'])->sum('amount_paid');
+        $totalPending   = (clone $invoiceQuery)->whereIn('status', ['issued'])->sum('amount_pending');
+        $totalCancelled = (clone $invoiceQuery)->where('status', 'cancelled')->sum('grand_total');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total_invoiced'  => (float) $totalInvoiced,
+                'total_collected' => (float) $totalCollected,
+                'total_pending'   => (float) $totalPending,
+                'total_cancelled' => (float) $totalCancelled,
+            ],
+        ]);
+    }
+
+    /**
      * List invoices with filters. Paginated.
      */
     public function index(Request $request): AnonymousResourceCollection

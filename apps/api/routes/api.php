@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\PaymentController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\WorkerController;
 use App\Http\Controllers\Api\V1\WorkflowController;
+use App\Http\Controllers\Api\V1\ExpenseController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -186,6 +187,7 @@ Route::prefix('v1')->group(function () {
         // -----------------------------------------
         // Invoices
         // -----------------------------------------
+        Route::get('/invoices/kpis', [InvoiceController::class, 'kpis']);
         Route::apiResource('invoices', InvoiceController::class)->except(['update']);
         Route::patch('/invoices/{invoice}', [InvoiceController::class, 'update']);
         Route::prefix('invoices/{invoice}')->group(function () {
@@ -220,6 +222,26 @@ Route::prefix('v1')->group(function () {
         });
 
         // -----------------------------------------
+        // Expense Management
+        // -----------------------------------------
+        Route::prefix('expenses')->group(function () {
+            Route::get('/dashboard', [ExpenseController::class, 'dashboard']);
+            Route::get('/categories', [ExpenseController::class, 'categories']);
+            Route::post('/categories', [ExpenseController::class, 'storeCategory'])->middleware('role:owner|manager');
+            Route::get('/groups', [ExpenseController::class, 'groups']);
+            Route::post('/groups', [ExpenseController::class, 'storeGroup'])->middleware('role:owner|manager');
+            Route::get('/', [ExpenseController::class, 'index']);
+            Route::post('/', [ExpenseController::class, 'store']);
+            Route::get('/{expense}', [ExpenseController::class, 'show']);
+            Route::put('/{expense}', [ExpenseController::class, 'update']);
+            Route::delete('/{expense}', [ExpenseController::class, 'destroy']);
+            Route::post('/{expense}/approve', [ExpenseController::class, 'approve'])->middleware('role:owner|manager');
+            Route::post('/{expense}/reject', [ExpenseController::class, 'reject'])->middleware('role:owner|manager');
+            Route::post('/{expense}/receipts', [ExpenseController::class, 'uploadReceipt']);
+            Route::delete('/{expense}/receipts/{index}', [ExpenseController::class, 'deleteReceipt']);
+        });
+
+        // -----------------------------------------
         // HSN Codes
         // -----------------------------------------
         Route::get('/hsn-codes', [MasterDataController::class, 'hsnCodes']);
@@ -231,7 +253,7 @@ Route::prefix('v1')->group(function () {
         // Users (Team Management)
         // -----------------------------------------
         Route::prefix('users')->group(function () {
-            Route::get('/', [UserController::class, 'index'])->middleware('permission:users.view');
+            Route::get('/', [UserController::class, 'index']);
             Route::post('/', [UserController::class, 'store'])->middleware('permission:users.create');
             Route::get('/{user}', [UserController::class, 'show'])->middleware('permission:users.view');
             Route::put('/{user}', [UserController::class, 'update'])->middleware('permission:users.edit');

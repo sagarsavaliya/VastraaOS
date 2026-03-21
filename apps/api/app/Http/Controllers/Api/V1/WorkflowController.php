@@ -334,15 +334,28 @@ class WorkflowController extends Controller
                     ], 422);
                 }
 
+                // Update task FIRST so advanceToNextStage sees the correct pending count
+                $task->update($updates);
+
                 // Advance to next stage (may be blocked by measurement gate)
                 $blockMessage = $this->advanceToNextStage($task);
                 if ($blockMessage) {
+                    // Rollback the status update if blocked
+                    $task->update([
+                        'status' => 'in_progress',
+                        'completed_at' => null,
+                        'completed_by_user_id' => null,
+                    ]);
                     return response()->json([
                         'message' => $blockMessage,
                         'error_code' => 'MEASUREMENTS_REQUIRED',
                     ], 422);
                 }
-                break;
+
+                return response()->json([
+                    'message' => 'Task status updated successfully',
+                    'data' => $task->fresh()->load('workflowStage'),
+                ]);
 
             case 'skipped':
                 // Only managers/owners can skip mandatory stages

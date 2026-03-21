@@ -27,7 +27,7 @@ const PaymentModeChart = ({ data }) => {
     const maxAmount = Math.max(...entries.map(e => e.amount), 1);
 
     return (
-        <div className="bg-surface rounded-2xl border border-border p-6 flex flex-col gap-4">
+        <div className="bg-surface rounded-2xl border border-border p-6 flex flex-col gap-4 h-full">
             <h3 className="font-bold text-text-main tracking-tight">Payment Mode Breakdown</h3>
             <div className="space-y-4">
                 {entries.map(({ key, label, icon: Icon, amount }) => {

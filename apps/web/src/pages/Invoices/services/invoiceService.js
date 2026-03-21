@@ -10,3 +10,4 @@ export const sendInvoice = (id) => api.post(`/invoices/${id}/send`).then(r => r.
 export const getInvoicePdfUrl = (id) => `${import.meta.env.VITE_API_URL}/invoices/${id}/pdf`;
 export const getOrdersForInvoice = (search) => api.get('/orders', { params: { search, per_page: 20 } }).then(r => r.data);
 export const getHsnCodes = (search) => api.get('/hsn-codes', { params: { search } }).then(r => r.data);
+export const getInvoiceKPIs = (params) => api.get('/invoices/kpis', { params }).then(r => r.data);

@@ -16,6 +16,7 @@ const DataTable = ({
     perPage = 10,
     renderRow,
     filters,
+    footerContent,
     emptyMessage = "No records found",
     searchPlaceholder = "Search...",
     headerAction: HeaderAction,
@@ -48,27 +49,22 @@ const DataTable = ({
             {/* Table Header */}
             <div className="px-4 py-3 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface">
 
-                {/* Left: title/icon (if provided) + filters */}
-                <div className="flex flex-wrap items-center gap-3">
-                    {(Icon || title) && (
-                        <div className="flex items-center gap-3 shrink-0">
-                            {Icon && (
-                                <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                                    <Icon size={20} />
-                                </div>
-                            )}
-                            {title && <h3 className="font-bold text-text-main tracking-tight">{title}</h3>}
+                {/* Left: icon + title */}
+                <div className="flex items-center gap-3 shrink-0">
+                    {Icon && (
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                            <Icon size={20} />
                         </div>
                     )}
-                    {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
+                    {title && <h3 className="font-bold text-text-main tracking-tight">{title}</h3>}
                 </div>
 
-                {/* Right: action button + search */}
-                <div className="flex items-center gap-3 shrink-0">
-                    {HeaderAction && <HeaderAction />}
+                {/* Right: filters + search + primary action */}
+                <div className="flex items-center gap-2 shrink-0 min-w-0">
+                    {filters && <div className="flex items-center gap-2">{filters}</div>}
 
                     {/* Search Input */}
-                    <div className={`relative transition-all duration-300 w-64 ${searchFocused ? 'scale-[1.01]' : 'scale-100'}`}>
+                    <div className={`relative transition-all duration-300 w-44 shrink-0 ${searchFocused ? 'scale-[1.01]' : 'scale-100'}`}>
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search size={15} className={`transition-colors duration-200 ${searchFocused ? 'text-primary' : 'text-text-muted'}`} />
                         </div>
@@ -82,16 +78,24 @@ const DataTable = ({
                             className="block w-full pl-9 pr-4 h-9 bg-background border border-border rounded-xl text-sm text-text-main placeholder:text-text-muted outline-none focus:border-primary/60 transition-all duration-200"
                         />
                     </div>
+
+                    {/* Divider + Primary CTA */}
+                    {HeaderAction && (
+                        <>
+                            <div className="h-6 w-px bg-border shrink-0" />
+                            <HeaderAction />
+                        </>
+                    )}
                 </div>
 
             </div>
 
             {/* Table Content */}
             <div
-                className="overflow-x-auto rounded-b-2xl bg-surface"
+                className="overflow-x-hidden rounded-b-2xl bg-surface"
                 style={{ minHeight }}
             >
-                <table className="w-full">
+                <table className="w-full table-fixed">
                     <thead className="bg-background-content/50 border-b border-border">
                         <tr>
                             {columns.map((col, index) => (
@@ -176,6 +180,12 @@ const DataTable = ({
                             </span> of <span className="text-text-main">{meta.total || data.length}</span> results
                         </div>
                     </div>
+
+                    {footerContent && (
+                        <div className="flex items-center gap-2">
+                            {footerContent}
+                        </div>
+                    )}
 
                     <Pagination
                         currentPage={(meta.current_page || meta.page) || 1}

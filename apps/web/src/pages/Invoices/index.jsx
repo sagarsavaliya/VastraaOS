@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, DollarSign, FileCheck, Clock, XCircle, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DataTable from '../../components/UI/DataTable';
 import Modal from '../../components/UI/Modal';
 import { ModernButton } from '../../components/UI/CustomInputs';
 import { useToast } from '../../components/UI/Toast';
 import { useAuth } from '../../contexts/AuthContext';
-import { getInvoices, updateInvoiceStatus } from './services/invoiceService';
+import { getInvoices, updateInvoiceStatus, getInvoiceKPIs } from './services/invoiceService';
 import InvoiceFilters from './components/InvoiceFilters';
 import InvoiceListTable from './components/InvoiceListTable';
 import InvoiceForm from './components/InvoiceForm';
@@ -40,6 +40,12 @@ const Invoices = () => {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
 
+    const [kpiData, setKpiData] = useState(null);
+    const [kpiLoading, setKpiLoading] = useState(true);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [consolidated, setConsolidated] = useState(false);
+
     const fetchInvoices = useCallback(async (silent = false) => {
         if (!silent) setTableLoading(true);
         try {
@@ -65,6 +71,30 @@ const Invoices = () => {
     useEffect(() => {
         fetchInvoices();
     }, [fetchInvoices]);
+
+    const fetchKPIs = useCallback(async () => {
+        setKpiLoading(true);
+        try {
+            const res = await getInvoiceKPIs({
+                month: consolidated ? null : selectedMonth,
+                year: consolidated ? null : selectedYear,
+                consolidated,
+            });
+            setKpiData(res.data || res);
+        } catch { setKpiData(null); }
+        finally { setKpiLoading(false); }
+    }, [selectedMonth, selectedYear, consolidated]);
+
+    useEffect(() => { fetchKPIs(); }, [fetchKPIs]);
+
+    const navigateMonth = (direction) => {
+        setSelectedMonth(prev => {
+            let m = prev + direction;
+            if (m > 12) { setSelectedYear(y => y + 1); return 1; }
+            if (m < 1) { setSelectedYear(y => y - 1); return 12; }
+            return m;
+        });
+    };
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -129,17 +159,69 @@ const Invoices = () => {
 
     return (
         <motion.div variants={pageVariants} initial="hidden" animate="visible" className="space-y-4">
-            {/* Row 1: Title + Action */}
-            <div className="flex items-center justify-between">
+            {/* Header row — title left, controls right */}
+            <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                        <FileText size={20} />
+                    <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                        <FileText size={24} />
                     </div>
-                    <h2 className="text-xl font-bold text-text-main tracking-tight">Invoices</h2>
+                    <h1 className="text-2xl font-bold text-text-main tracking-tight">Invoices</h1>
                 </div>
-                <ModernButton onClick={() => setIsCreateOpen(true)} icon={Plus} variant="primary" size="sm">
-                    NEW INVOICE
-                </ModernButton>
+                <div className="flex items-center gap-2 shrink-0">
+                    {!consolidated && (
+                        <>
+                            <button onClick={() => navigateMonth(-1)} className="p-1.5 rounded-lg hover:bg-surface text-text-muted hover:text-text-main transition-colors border border-border">
+                                <ChevronLeft size={16} />
+                            </button>
+                            <span className="text-sm font-bold text-text-main min-w-[140px] text-center">
+                                {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                            </span>
+                            <button onClick={() => navigateMonth(1)} className="p-1.5 rounded-lg hover:bg-surface text-text-muted hover:text-text-main transition-colors border border-border">
+                                <ChevronRight size={16} />
+                            </button>
+                            <div className="h-6 w-px bg-border mx-1" />
+                        </>
+                    )}
+                    <button
+                        onClick={() => setConsolidated(c => !c)}
+                        className={`flex items-center gap-2 px-4 h-9 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${
+                            consolidated ? 'bg-primary text-white border-primary shadow-sm' : 'bg-surface text-text-secondary border-border hover:border-primary/50 hover:text-primary'
+                        }`}
+                    >
+                        <BarChart3 size={14} />
+                        Consolidated
+                    </button>
+                    <div className="h-6 w-px bg-border mx-1" />
+                    <ModernButton onClick={() => setIsCreateOpen(true)} icon={Plus} variant="primary" size="sm">
+                        NEW INVOICE
+                    </ModernButton>
+                </div>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: 'Total Invoiced', value: kpiData?.total_invoiced, icon: DollarSign, color: 'text-primary', bg: 'bg-primary/10', prefix: '₹' },
+                    { label: 'Collected', value: kpiData?.total_collected, icon: FileCheck, color: 'text-emerald-500', bg: 'bg-emerald-500/10', prefix: '₹' },
+                    { label: 'Pending', value: kpiData?.total_pending, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10', prefix: '₹' },
+                    { label: 'Cancelled', value: kpiData?.total_cancelled, icon: XCircle, color: 'text-rose-500', bg: 'bg-rose-500/10', prefix: '₹' },
+                ].map((card, i) => (
+                    <div key={i} className="bg-surface border border-border rounded-2xl px-5 py-4 flex items-center gap-4">
+                        <div className={`p-3 rounded-xl ${card.bg} shrink-0`}>
+                            <card.icon size={20} className={card.color} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">{card.label}</p>
+                            {kpiLoading ? (
+                                <div className="h-5 bg-background-content rounded w-20 animate-pulse mt-1" />
+                            ) : (
+                                <p className="text-lg font-black text-text-main">
+                                    {card.prefix}{(card.value || 0).toLocaleString('en-IN')}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                ))}
             </div>
 
             <DataTable

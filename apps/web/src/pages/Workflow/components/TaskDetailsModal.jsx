@@ -85,6 +85,24 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
         }
     };
 
+    const handleStartAndComplete = async () => {
+        if (!activeTask) return;
+        setActionLoading(true);
+        try {
+            await updateTaskStatus(activeTask.id, { status: 'in_progress' });
+            await updateTaskStatus(activeTask.id, { status: 'completed', notes: stageNotes });
+            showToast('Stage completed — moved to next stage', 'success');
+            setStageNotes('');
+            await fetchItemDetails();
+            onStatusUpdate && onStatusUpdate();
+        } catch (error) {
+            const msg = error.response?.data?.message || 'Failed to complete stage';
+            showToast(msg, 'error');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleAddComment = async () => {
         if (!newComment.trim()) return;
 
@@ -229,15 +247,35 @@ const TaskDetailsModal = ({ isOpen, onClose, taskId, onAssignClick, onPhotoUploa
                                 <div className="flex flex-wrap items-center gap-3">
                                     {activeTask.status === 'pending' && (
                                         isActiveTaskAssigned ? (
-                                            <ModernButton
-                                                variant="primary"
-                                                size="sm"
-                                                icon={Play}
-                                                loading={actionLoading}
-                                                onClick={() => handleStageAction('in_progress')}
-                                            >
-                                                Start Work
-                                            </ModernButton>
+                                            <div className="w-full space-y-3">
+                                                <textarea
+                                                    rows={2}
+                                                    value={stageNotes}
+                                                    onChange={(e) => setStageNotes(e.target.value)}
+                                                    placeholder="Add a note for this stage (optional)..."
+                                                    className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:border-primary/50 resize-none"
+                                                />
+                                                <div className="flex items-center gap-3">
+                                                    <ModernButton
+                                                        variant="primary"
+                                                        size="sm"
+                                                        icon={Play}
+                                                        loading={actionLoading}
+                                                        onClick={() => handleStageAction('in_progress')}
+                                                    >
+                                                        Start Work
+                                                    </ModernButton>
+                                                    <ModernButton
+                                                        variant="success"
+                                                        size="sm"
+                                                        icon={CheckCircle}
+                                                        loading={actionLoading}
+                                                        onClick={handleStartAndComplete}
+                                                    >
+                                                        Mark Complete
+                                                    </ModernButton>
+                                                </div>
+                                            </div>
                                         ) : (
                                             <div className="flex items-center gap-3">
                                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">

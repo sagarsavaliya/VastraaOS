@@ -14,6 +14,7 @@ import {
     FileText,
     ChevronRight,
     BarChart2,
+    Receipt,
 } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -45,6 +46,7 @@ const tenantGroups = [
             { icon: LayoutDashboard, label: 'Billing', path: '/billing' },
             { icon: FileText, label: 'Invoices', path: '/invoices' },
             { icon: CreditCard, label: 'Payments', path: '/payments' },
+            { icon: Receipt, label: 'Expenses', path: '/expenses' },
             { icon: BarChart2, label: 'Reports', path: '/reports' },
         ],
     },

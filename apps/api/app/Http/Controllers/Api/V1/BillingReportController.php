@@ -12,30 +12,36 @@ use Illuminate\Support\Facades\DB;
 class BillingReportController extends Controller
 {
     /**
-     * Aggregated billing summary for the current tenant (current month stats).
+     * Aggregated billing summary for the current tenant.
+     * Accepts ?month=&year=&consolidated= filters.
      */
-    public function summary(): JsonResponse
+    public function summary(Request $request): JsonResponse
     {
-        $tenantId = app('tenant_id');
-        $now      = now();
+        $tenantId     = app('tenant_id');
+        $now          = now();
+        $consolidated = $request->boolean('consolidated');
+        $month        = $request->integer('month', $now->month);
+        $year         = $request->integer('year', $now->year);
 
-        // Current month invoiced
-        $monthInvoiced = DB::table('invoices')
+        // Period invoiced
+        $periodInvoiced = DB::table('invoices')
             ->where('tenant_id', $tenantId)
-            ->whereMonth('invoice_date', $now->month)
-            ->whereYear('invoice_date', $now->year)
+            ->when(!$consolidated, fn($q) => $q->whereMonth('invoice_date', $month)->whereYear('invoice_date', $year))
             ->where('status', 'issued')
             ->whereNull('deleted_at')
             ->sum('grand_total');
 
-        // Current month collected
-        $monthCollected = DB::table('payments')
+        // Period collected
+        $periodCollected = DB::table('payments')
             ->where('tenant_id', $tenantId)
-            ->whereMonth('payment_date', $now->month)
-            ->whereYear('payment_date', $now->year)
+            ->when(!$consolidated, fn($q) => $q->whereMonth('payment_date', $month)->whereYear('payment_date', $year))
             ->where('status', 'completed')
             ->whereNull('deleted_at')
             ->sum('amount');
+
+        // Keep aliases for backward compat
+        $monthInvoiced  = $periodInvoiced;
+        $monthCollected = $periodCollected;
 
         // Total outstanding (issued invoices not fully paid)
         $totalOutstanding = DB::table('invoices')
@@ -127,7 +133,7 @@ class BillingReportController extends Controller
     /**
      * Accounts receivable ageing buckets (0-30, 31-60, 61-90, 90+ days).
      */
-    public function receivables(): JsonResponse
+    public function receivables(Request $request): JsonResponse
     {
         $tenantId = app('tenant_id');
 

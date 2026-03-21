@@ -4,7 +4,7 @@ import { Calendar, Trash2, Plus } from 'lucide-react';
 import { ModernInput, ModernSelect, ModernSearchSelect, ModernTextArea, ModernButton, ModernNumberInput } from '../../../components/UI/CustomInputs';
 import { getOccasions, getItemTypes, getOrderStatuses, getOrderPriorities } from '../../../services/masterDataService';
 import { getCustomers } from '../../Customers/services/customerService';
-import { createOrder, updateOrder } from '../services/orderService';
+import { createOrder, updateOrder, updateOrderStatus } from '../services/orderService';
 
 const OrderForm = ({ onSuccess, onCancel, setFooter, isEdit = false, initialData = null }) => {
     const { showToast } = useToast();
@@ -211,6 +211,10 @@ const OrderForm = ({ onSuccess, onCancel, setFooter, isEdit = false, initialData
             let result;
             if (isEdit) {
                 result = await updateOrder(initialData.id, dataToSave);
+                // status_id is ignored by the general update endpoint — always use the dedicated status endpoint
+                if (formData.status_id) {
+                    await updateOrderStatus(initialData.id, formData.status_id);
+                }
                 showToast('Order updated successfully!', 'success');
             } else {
                 result = await createOrder(dataToSave);
@@ -254,6 +258,7 @@ const OrderForm = ({ onSuccess, onCancel, setFooter, isEdit = false, initialData
                     options={customers.map(c => ({ id: c.id, name: c.name || `${c.first_name} ${c.last_name} (${c.mobile})` }))}
                     onChange={(e) => setFormData(prev => ({ ...prev, customer_id: e.target.value }))}
                     error={errors.customer_id}
+                    autoFocus
                 />
 
                 <div className="grid grid-cols-2 gap-4">

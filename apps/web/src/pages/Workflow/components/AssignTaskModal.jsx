@@ -20,7 +20,7 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
         due_date: new Date().toISOString().split('T')[0]
     });
 
-    const selectedItemData = items.find(i => i.id === formData.item_id);
+    const selectedItemData = items.find(i => String(i.id) === String(formData.item_id));
 
     // Determine the active task ID to assign to
     const getActiveTaskId = (source) => {
@@ -153,7 +153,7 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
                                 <ModernSearchSelect
                                     label="Select Production Item"
                                     value={formData.item_id}
-                                    onChange={(e) => setFormData({ ...formData, item_id: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, item_id: e.target.value ? Number(e.target.value) : '' })}
                                     options={items.map(i => ({
                                         id: i.id,
                                         label: `#${i.order?.order_number} - ${i.item_type?.name || i.item_name}`,
@@ -161,6 +161,7 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
                                     }))}
                                     placeholder="Search by order or item..."
                                     icon={Package}
+                                    autoFocus={!task}
                                 />
                             ) : (
                                 <div className="space-y-1">
@@ -195,6 +196,7 @@ const AssignTaskModal = ({ isOpen, onClose, task, onSuccess }) => {
                                 options={users.map(u => ({ id: u.id, name: u.name }))}
                                 placeholder="Select team member..."
                                 icon={User}
+                                autoFocus={!!task}
                             />
                             {formData.user_id && (
                                 <label className="flex items-center gap-3 cursor-pointer group">
