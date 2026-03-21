@@ -1,0 +1,48 @@
+name: VastraOS CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Login to Docker Hub
+      - name: Login to Docker Hub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      # 3. Build & Push API
+      - name: Build API
+        run: |
+          docker build -t aksharatechnologies/vastraaos-api:latest ./apps/api
+          docker push aksharatechnologies/vastraaos-api:latest
+
+      # 4. Build & Push Web
+      - name: Build Web
+        run: |
+          docker build -t aksharatechnologies/vastraaos-web:latest ./apps/web
+          docker push aksharatechnologies/vastraaos-web:latest
+
+      # 5. Build & Push Landing
+      - name: Build Landing
+        run: |
+          docker build -t aksharatechnologies/vastraaos-landing:latest ./apps/landing
+          docker push aksharatechnologies/vastraaos-landing:latest
+
+      # 6. Deploy to VPS
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/vastraaos
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d
